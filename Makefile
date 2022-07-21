@@ -1,4 +1,4 @@
-STEPS = step0_repl
+STEPS = step0_repl step1_read_print
 
 CARGO := $(or $(CARGO),cargo)
 
@@ -8,10 +8,13 @@ step%: .FORCE
 	$(CARGO) build --release --bin $@
 	cp target/release/$@$(EXEC_EXT) ./$@
 
-.PHONY: clean fmt .FORCE
+.PHONY: test clean fmt .FORCE
+
+test:
+	$(CARGO) test --all-targets
 
 fmt:
-	$(CARGO) fmt
+	$(CARGO) +stable fmt
 
 clean:
 	$(CARGO) clean
