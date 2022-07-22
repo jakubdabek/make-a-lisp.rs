@@ -10,15 +10,21 @@ pub struct Lexer<'a> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Token<'a> {
     Atom(&'a str),
-    Special(char),
+    Special([u8; 2]),
     String(Cow<'a, str>),
 }
+
+const SPECIAL: &[u8] = b"[]{}()'`~^@";
 
 impl fmt::Display for Token<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Token::Atom(a) => f.write_str(a),
-            Token::Special(s) => f.write_char(*s),
+            Token::Special([b, b'\0']) => f.write_char(*b as char),
+            Token::Special([b1, b2]) => {
+                f.write_char(*b1 as char)?;
+                f.write_char(*b2 as char)
+            }
             Token::String(s) => fmt::Debug::fmt(s, f),
         }
     }
@@ -28,13 +34,24 @@ impl<'a> Lexer<'a> {
     pub fn new(source: &'a str) -> Self {
         Self { source, index: 0 }
     }
-
-    pub fn next(&mut self) -> Option<Token<'a>> {
+}
+impl<'a> Iterator for Lexer<'a> {
+    type Item = Token<'a>;
+    fn next(&mut self) -> Option<Self::Item> {
         loop {
             match self.curr()? {
-                b if b"[]{}()'`~^@".contains(&b) => {
+                b'~' => {
                     self.eat(1);
-                    break Some(Token::Special(b as char));
+                    if self.curr() == Some(b'@') {
+                        self.eat(1);
+                        break Some(Token::Special([b'~', b'@']));
+                    } else {
+                        break Some(Token::Special([b'~', b'\0']));
+                    }
+                }
+                b if SPECIAL.contains(&b) => {
+                    self.eat(1);
+                    break Some(Token::Special([b, b'\0']));
                 }
                 b'"' => break self.eat_string().map(Token::String),
                 b';' => self.eat_comment(),
@@ -110,9 +127,9 @@ impl<'a> Lexer<'a> {
         let start_index = self.index;
         loop {
             match self.curr() {
-                Some(b) if b"[]{}()'`~^@;,".contains(&b) || b.is_ascii_whitespace() => {
-                    break;
-                }
+                Some(b) if SPECIAL.contains(&b) => break,
+                Some(b';' | b',') => break,
+                Some(b) if b.is_ascii_whitespace() => break,
                 Some(_) => {
                     self.eat(1);
                     continue;
@@ -137,9 +154,30 @@ mod tests {
             let mut lex = Lexer::new(&chars[i..i + 1]);
             assert_eq!(
                 lex.next(),
-                Some(Token::Special(chars.as_bytes()[i] as char))
+                Some(Token::Special([chars.as_bytes()[i], b'\0']))
             );
             assert!(lex.next().is_none());
+        }
+    }
+
+    #[test]
+    fn combined_special() {
+        use Token::{Atom as A, Special as S, String as Str};
+
+        let cases = [
+            ("~1", &[S([b'~', b'\0']), A("1")][..]),
+            (r#"~"abc""#, &[S([b'~', b'\0']), Str("abc".into())][..]),
+            ("~^1", &[S([b'~', b'\0']), S([b'^', b'\0']), A("1")][..]),
+            ("@1", &[S([b'@', b'\0']), A("1")][..]),
+            ("~@1", &[S([b'~', b'@']), A("1")][..]),
+            ("~ @1", &[S([b'~', b'\0']), S([b'@', b'\0']), A("1")][..]),
+            ("~,@,1", &[S([b'~', b'\0']), S([b'@', b'\0']), A("1")][..]),
+        ];
+
+        for (input, expected) in cases {
+            let lex = Lexer::new(input);
+            let lexed: Vec<_> = lex.collect();
+            assert_eq!(lexed.as_slice(), expected);
         }
     }
 
@@ -189,50 +227,51 @@ mod tests {
     #[test]
     fn multiple() {
         use Token::{Atom as A, Special as S};
+        let ss = |c: char| S([c as u8, b'\0']);
         let cases = [
-            ("(123 456)", &[S('('), A("123"), A("456"), S(')')][..]),
+            ("(123 456)", &[ss('('), A("123"), A("456"), ss(')')][..]),
             (
                 "( 123 456 789 )",
-                &[S('('), A("123"), A("456"), A("789"), S(')')],
+                &[ss('('), A("123"), A("456"), A("789"), ss(')')],
             ),
-            ("(a,b,c)", &[S('('), A("a"), A("b"), A("c"), S(')')]),
+            ("(a,b,c)", &[ss('('), A("a"), A("b"), A("c"), ss(')')]),
             (
                 "( 123 456 789 ) ; (hmm 123)",
-                &[S('('), A("123"), A("456"), A("789"), S(')')],
+                &[ss('('), A("123"), A("456"), A("789"), ss(')')],
             ),
             (
                 "( + 2 (* 3 4) )",
                 &[
-                    S('('),
+                    ss('('),
                     A("+"),
                     A("2"),
-                    S('('),
+                    ss('('),
                     A("*"),
                     A("3"),
                     A("4"),
-                    S(')'),
-                    S(')'),
+                    ss(')'),
+                    ss(')'),
                 ],
             ),
             (
                 ",(,+,2,(,*,3,4,),),",
                 &[
-                    S('('),
+                    ss('('),
                     A("+"),
                     A("2"),
-                    S('('),
+                    ss('('),
                     A("*"),
                     A("3"),
                     A("4"),
-                    S(')'),
-                    S(')'),
+                    ss(')'),
+                    ss(')'),
                 ],
             ),
         ];
 
         for (input, expected) in cases {
-            let mut lex = Lexer::new(input);
-            let lexed: Vec<_> = std::iter::from_fn(|| lex.next()).collect();
+            let lex = Lexer::new(input);
+            let lexed: Vec<_> = lex.collect();
             assert_eq!(lexed.as_slice(), expected);
         }
     }
