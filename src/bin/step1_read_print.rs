@@ -2,7 +2,10 @@
 
 use std::io::{self, Write};
 
-use rust2::parser::{self, Expr, ParseError};
+use rust2::{
+    ast::Expr,
+    parser::{self, ParseError},
+};
 
 #[derive(Debug, thiserror::Error)]
 enum Error {
@@ -21,6 +24,9 @@ fn main() {
         match rep() {
             Ok(_) => {}
             Err(Error::Eof) => break,
+            Err(Error::Parse(e)) => {
+                println!("Error: {e}");
+            }
             Err(e) => {
                 eprintln!("Error: {e}");
                 break;
@@ -59,10 +65,5 @@ fn execute(s: &str) -> Result<Expr<'_>> {
 }
 
 fn print(expr: Expr<'_>) -> Result<String> {
-    use std::fmt::Write;
-    let mut s = String::with_capacity(expr.len());
-    for token in expr {
-        write!(&mut s, "{}", token).unwrap();
-    }
-    Ok(s)
+    Ok(format!("{:?}", expr))
 }
