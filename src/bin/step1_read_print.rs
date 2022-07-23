@@ -65,5 +65,5 @@ fn execute(s: &str) -> Result<Expr<'_>> {
 }
 
 fn print(expr: Expr<'_>) -> Result<String> {
-    Ok(format!("{:?}", expr))
+    Ok(format!("{}", expr))
 }

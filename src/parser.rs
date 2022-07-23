@@ -15,6 +15,8 @@ pub enum ParseError {
     UnexpectedTerm,
     #[error("unmatched delimiter: '{0}'")]
     UnmatchedDelimiter(char),
+    #[error("{0}")]
+    LexError(String),
     #[error("internal error: unknown token")]
     UnknownToken,
     #[error("internal error: {0}")]
@@ -53,6 +55,7 @@ fn parse_term<'s>(lexer: &mut Peekable<Lexer<'s>>) -> ParseResult<Expr<'s>> {
         Token::Special([b']', _]) => Err(ParseError::UnmatchedDelimiter(']')),
         Token::Special([b'}', _]) => Err(ParseError::UnmatchedDelimiter('}')),
         Token::String(s) => Ok(Expr::String(s)),
+        Token::Error(e) => Err(ParseError::LexError(e)),
         _ => Err(ParseError::UnknownToken),
     }
 }
@@ -61,8 +64,13 @@ fn parse_special_form<'s>(
     lexer: &mut Peekable<Lexer<'s>>,
     name: &'static str,
 ) -> ParseResult<Expr<'s>> {
-    let target = parse_term(lexer)?;
-    Ok(Expr::List(vec![Expr::Symbol(name.into()), target]))
+    let expr = parse_term(lexer)?;
+    if name == "with-meta" {
+        let meta = parse_term(lexer)?;
+        Ok(Expr::List(vec![Expr::Symbol(name.into()), meta, expr]))
+    } else {
+        Ok(Expr::List(vec![Expr::Symbol(name.into()), expr]))
+    }
 }
 
 fn parse_list<'s>(lexer: &mut Peekable<Lexer<'s>>, end: u8) -> ParseResult<Expr<'s>> {
@@ -80,7 +88,7 @@ fn parse_list<'s>(lexer: &mut Peekable<Lexer<'s>>, end: u8) -> ParseResult<Expr<
     match end {
         b')' => Ok(Expr::List(list)),
         b']' => Ok(Expr::Vector(list)),
-        b'}' => todo!(),
+        b'}' => Ok(Expr::Map(list)),
         _ => Err(ParseError::InternalError(
             "unknown value of end for list".into(),
         )),

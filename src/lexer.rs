@@ -12,9 +12,14 @@ pub enum Token<'a> {
     Atom(&'a str),
     Special([u8; 2]),
     String(Cow<'a, str>),
+    Error(String),
 }
 
 const SPECIAL: &[u8] = b"[]{}()'`~^@";
+
+fn str_eof() -> String {
+    "unexpected EOF while parsing string".into()
+}
 
 impl fmt::Display for Token<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -26,6 +31,7 @@ impl fmt::Display for Token<'_> {
                 f.write_char(*b2 as char)
             }
             Token::String(s) => fmt::Debug::fmt(s, f),
+            Token::Error(e) => write!(f, "error({e})"),
         }
     }
 }
@@ -53,7 +59,7 @@ impl<'a> Iterator for Lexer<'a> {
                     self.eat(1);
                     break Some(Token::Special([b, b'\0']));
                 }
-                b'"' => break self.eat_string().map(Token::String),
+                b'"' => break Some(self.eat_string().map_or_else(Token::Error, Token::String)),
                 b';' => self.eat_comment(),
                 b',' => self.eat(1),
                 b if b.is_ascii_whitespace() => self.eat(1),
@@ -79,37 +85,37 @@ impl<'a> Lexer<'a> {
             .unwrap_or(self.source.len());
     }
 
-    fn eat_string(&mut self) -> Option<Cow<'a, str>> {
+    fn eat_string(&mut self) -> Result<Cow<'a, str>, String> {
         self.eat(1); // `"`
         let source = &self.source[self.index..];
 
-        let i = source.find(&['\\', '"'])?;
+        let i = source.find(&['\\', '"']).ok_or_else(str_eof)?;
         if source.as_bytes()[i] == b'\\' {
             self.eat_escaped_string(i).map(Cow::Owned)
         } else {
             let s = &source[..i];
             self.index += i + 1;
-            Some(Cow::Borrowed(s))
+            Ok(Cow::Borrowed(s))
         }
     }
 
-    fn eat_escaped_string(&mut self, first_escape_index: usize) -> Option<String> {
+    fn eat_escaped_string(&mut self, first_escape_index: usize) -> Result<String, String> {
         let source = &self.source[self.index..];
         let mut escaped = source[..first_escape_index].to_owned();
         let mut index = first_escape_index + 1;
 
         loop {
-            match source.as_bytes().get(index)? {
+            match source.as_bytes().get(index).ok_or_else(str_eof)? {
                 b'n' => escaped.push('\n'),
                 b'\\' => escaped.push('\\'),
                 b'"' => escaped.push('\"'),
-                _ => return None,
+                _ => return Err("invalid escape sequence".into()),
             }
             index += 1;
 
             let subsource = &source[index..];
 
-            let i = subsource.find(&['\\', '"'])?;
+            let i = subsource.find(&['\\', '"']).ok_or_else(str_eof)?;
             escaped.push_str(&subsource[..i]);
             index += i + 1;
             if subsource.as_bytes()[i] == b'\\' {
@@ -120,7 +126,7 @@ impl<'a> Lexer<'a> {
             }
         }
 
-        Some(escaped)
+        Ok(escaped)
     }
 
     fn eat_atom(&mut self) -> Option<&'a str> {
