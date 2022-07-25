@@ -2,16 +2,17 @@ use std::borrow::Cow;
 use std::fmt::{self, Write};
 
 #[derive(Debug)]
-pub struct Lexer<'a> {
-    source: &'a str,
+pub struct Lexer<'source> {
+    source: &'source str,
     index: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Token<'a> {
-    Atom(&'a str),
+pub enum Token<'source> {
+    Atom(&'source str),
+    Keyword(&'source str),
     Special([u8; 2]),
-    String(Cow<'a, str>),
+    String(Cow<'source, str>),
     Error(String),
 }
 
@@ -25,6 +26,7 @@ impl fmt::Display for Token<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Token::Atom(a) => f.write_str(a),
+            Token::Keyword(k) => write!(f, ":{k}"),
             Token::Special([b, b'\0']) => f.write_char(*b as char),
             Token::Special([b1, b2]) => {
                 f.write_char(*b1 as char)?;
@@ -63,7 +65,14 @@ impl<'a> Iterator for Lexer<'a> {
                 b';' => self.eat_comment(),
                 b',' => self.eat(1),
                 b if b.is_ascii_whitespace() => self.eat(1),
-                _ => break self.eat_atom().map(Token::Atom),
+                _ => {
+                    let atom = self.eat_atom()?;
+                    let token = match atom.strip_prefix(':') {
+                        Some(kw) => Token::Keyword(kw),
+                        None => Token::Atom(atom),
+                    };
+                    break Some(token);
+                }
             }
         }
     }

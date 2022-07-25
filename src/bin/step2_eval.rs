@@ -4,7 +4,7 @@ use std::io::{self, Write};
 
 use rust2::{
     ast::Expr,
-    environment::{default_environment, Environment},
+    environment::{Env, Environment},
     eval::{self, EvalError},
     parser::{self, ParseError},
 };
@@ -24,7 +24,7 @@ enum Error {
 type Result<T> = std::result::Result<T, Error>;
 
 fn main() {
-    let env = default_environment();
+    let env = Environment::with_builtins();
     loop {
         match rep(&env) {
             Ok(_) => {}
@@ -43,7 +43,7 @@ fn main() {
     }
 }
 
-fn rep(env: &Environment) -> Result<()> {
+fn rep(env: &Env) -> Result<()> {
     let command = read()?;
     let result = execute(&command, env)?;
     let repr = print(result)?;
@@ -68,11 +68,11 @@ fn read() -> Result<String> {
     }
 }
 
-fn execute<'s>(s: &'s str, env: &Environment) -> Result<Expr<'s>> {
+fn execute(s: &str, env: &Env) -> Result<Expr> {
     let expr = parser::parse(s)?;
-    Ok(eval::eval(expr, env)?)
+    Ok(eval::eval(&expr, env)?)
 }
 
-fn print(expr: Expr<'_>) -> Result<String> {
-    Ok(format!("{}", expr))
+fn print(expr: Expr) -> Result<String> {
+    Ok(format!("{:#}", expr))
 }

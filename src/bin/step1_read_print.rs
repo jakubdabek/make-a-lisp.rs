@@ -60,10 +60,10 @@ fn read() -> Result<String> {
     }
 }
 
-fn execute(s: &str) -> Result<Expr<'_>> {
+fn execute(s: &str) -> Result<Expr> {
     Ok(parser::parse(s)?)
 }
 
-fn print(expr: Expr<'_>) -> Result<String> {
-    Ok(format!("{}", expr))
+fn print(expr: Expr) -> Result<String> {
+    Ok(format!("{:#}", expr))
 }
