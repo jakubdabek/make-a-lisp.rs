@@ -38,10 +38,10 @@ pub fn parse(s: &str) -> ParseResult<Expr<'_>> {
 fn parse_term<'s>(lexer: &mut Peekable<Lexer<'s>>) -> ParseResult<Expr<'s>> {
     let token = lexer.next().ok_or(ParseError::Empty)?;
     match token {
-        Token::Atom(atom) if atom.bytes().all(|b| b.is_ascii_digit()) => {
-            Ok(Expr::Int(atom.parse().unwrap()))
-        }
-        Token::Atom(atom) => Ok(Expr::Symbol(atom.to_owned().into())),
+        Token::Atom(atom) => match atom.parse() {
+            Ok(num) => Ok(Expr::Int(num)),
+            Err(_) => Ok(Expr::Symbol(atom.to_owned().into())),
+        },
         Token::Special([b'~', b'@']) => parse_special_form(lexer, "splice-unquote"),
         Token::Special([b'~', b'\0']) => parse_special_form(lexer, "unquote"),
         Token::Special([b'`', _]) => parse_special_form(lexer, "quasiquote"),
