@@ -1,4 +1,4 @@
-STEPS = step0_repl step1_read_print
+STEPS = step0_repl step1_read_print step2_eval
 
 CARGO := $(or $(CARGO),cargo)
 
@@ -12,6 +12,12 @@ step%: .FORCE
 
 test:
 	$(CARGO) test --all-targets
+
+clippy:
+	$(CARGO) clippy --all-targets
+
+clippy-fix:
+	$(CARGO) clippy --all-targets --fix --allow-dirty
 
 fmt:
 	$(CARGO) +stable fmt
