@@ -1,29 +1,23 @@
-use rust2::repl::{self, Error, Result};
+use rust2::{
+    environment::Env,
+    repl::{self, repl_funcs::ReplFuncs, Result},
+};
 
-fn main() {
-    loop {
-        match rep() {
-            Ok(_) => {}
-            Err(Error::Eof) => break,
-            Err(e) => {
-                eprintln!("Error: {e}");
-                break;
-            }
-        }
+#[derive(Debug, Clone, Copy)]
+pub struct Step0;
+
+impl ReplFuncs for Step0 {
+    type Value = String;
+
+    fn execute(&self, s: &str, _env: &Env) -> Result<String> {
+        Ok(s.to_owned())
+    }
+
+    fn print(&self, expr: String) -> Result<String> {
+        Ok(expr)
     }
 }
 
-fn rep() -> Result<()> {
-    let command = repl::read()?;
-    let result = execute(command)?;
-    let repr = print(result)?;
-    println!("{repr}");
-    Ok(())
-}
-fn execute(s: String) -> Result<String> {
-    Ok(s)
-}
-
-fn print(s: String) -> Result<String> {
-    Ok(s)
+fn main() {
+    repl::main(Step0)
 }

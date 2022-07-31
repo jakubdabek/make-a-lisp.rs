@@ -7,27 +7,14 @@ use crate::{
     parser::{self, ParseError},
 };
 
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("end of input")]
-    Eof,
-    #[error("reading input failed: {0}")]
-    IO(#[from] io::Error),
-    #[error("parsing failed: {0}")]
-    Parse(#[from] ParseError),
-    #[error("evaluation failed: {0}")]
-    Eval(#[from] EvalError),
-}
+use self::repl_funcs::ReplFuncs;
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub mod repl_funcs;
 
-pub fn main<Execute>(exec: Execute)
-where
-    Execute: Copy + Fn(&str, &Env) -> Result<Expr>,
-{
+pub fn main(funcs: impl ReplFuncs) {
     let env = Environment::with_builtins();
     loop {
-        match rep(exec, &env) {
+        match rep(&funcs, &env) {
             Ok(_) => {}
             Err(Error::Eof) => break,
             Err(Error::Parse(e)) => {
@@ -44,13 +31,10 @@ where
     }
 }
 
-pub fn rep<Execute>(exec: Execute, env: &Env) -> Result<()>
-where
-    Execute: Fn(&str, &Env) -> Result<Expr>,
-{
-    let command = read()?;
-    let result = exec(&command, env)?;
-    let repr = print(result)?;
+pub fn rep(funcs: &impl ReplFuncs, env: &Env) -> Result<()> {
+    let command = funcs.read()?;
+    let result = funcs.execute(&command, env)?;
+    let repr = funcs.print(result)?;
     println!("{repr}");
     Ok(())
 }
@@ -84,4 +68,18 @@ pub fn execute_no_eval(s: &str, _env: &Env) -> Result<Expr> {
 
 pub fn print(expr: Expr) -> Result<String> {
     Ok(format!("{:#}", expr))
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
+
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("end of input")]
+    Eof,
+    #[error("reading input failed: {0}")]
+    IO(#[from] io::Error),
+    #[error("parsing failed: {0}")]
+    Parse(#[from] ParseError),
+    #[error("evaluation failed: {0}")]
+    Eval(#[from] EvalError),
 }
