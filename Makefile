@@ -1,4 +1,5 @@
-STEPS = step0_repl step1_read_print step2_eval step3_env
+DEBUG_STEPS := step_debug_eval step_debug_no_eval
+STEPS := $(DEBUG_STEPS) step0_repl step1_read_print step2_eval step3_env
 
 CARGO := $(or $(CARGO),cargo)
 
