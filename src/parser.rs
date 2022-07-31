@@ -38,10 +38,7 @@ pub fn parse(s: &str) -> ParseResult<Expr> {
 fn parse_term(lexer: &mut Peekable<Lexer<'_>>) -> ParseResult<Expr> {
     let token = lexer.next().ok_or(ParseError::Empty)?;
     match token {
-        Token::Atom(atom) => match atom.parse() {
-            Ok(num) => Ok(Expr::Int(num)),
-            Err(_) => Ok(Expr::Symbol(atom.into())),
-        },
+        Token::Atom(atom) => parse_atom(atom),
         Token::Keyword(k) => Ok(Expr::Keyword(Keyword::new(k))),
         Token::Special([b'~', b'@']) => parse_special_form(lexer, "splice-unquote"),
         Token::Special([b'~', b'\0']) => parse_special_form(lexer, "unquote"),
@@ -59,6 +56,22 @@ fn parse_term(lexer: &mut Peekable<Lexer<'_>>) -> ParseResult<Expr> {
         Token::Error(e) => Err(ParseError::LexError(e)),
         _ => Err(ParseError::UnknownToken),
     }
+}
+
+fn parse_atom(atom: &str) -> Result<Expr, ParseError> {
+    if let Ok(num) = atom.parse() {
+        return Ok(Expr::Int(num));
+    }
+
+    if let Ok(num) = atom.parse() {
+        return Ok(Expr::Bool(num));
+    }
+
+    if atom == "nil" {
+        return Ok(Expr::Nil);
+    }
+
+    Ok(Expr::Symbol(atom.into()))
 }
 
 fn parse_special_form(lexer: &mut Peekable<Lexer<'_>>, name: &'static str) -> ParseResult<Expr> {
