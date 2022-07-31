@@ -1,6 +1,9 @@
 use std::{cmp, fmt, rc::Rc};
 
-use crate::{ast::Expr, environment::Env};
+use crate::{
+    ast::Expr,
+    environment::{Env, Environment},
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum EvalError {
@@ -12,8 +15,12 @@ pub enum EvalError {
     InvalidFunction(String),
     #[error("invalid function arguments ({0}, {1})")]
     InvalidArguments(String, String),
-    #[error("unknown symbol: {0}")]
+    #[error("'{0}' not found")]
     UnknownSymbol(Rc<str>),
+    #[error("invalid variable name: {0}")]
+    InvalidVariableName(String),
+    #[error("invalid variables for let*")]
+    InvalidLetVariables,
 }
 
 pub type EvalResult<T> = std::result::Result<T, EvalError>;
@@ -34,7 +41,7 @@ impl cmp::PartialEq for EvalFunc {
 }
 
 pub fn eval(expr: &Expr, env: &Env) -> EvalResult<Expr> {
-    match expr {
+    match expr.as_ref() {
         Expr::Symbol(sym) => match env.get(&**sym) {
             Some(f) => Ok(f),
             None => Err(EvalError::UnknownSymbol(sym.clone())),
@@ -51,16 +58,15 @@ pub fn eval(expr: &Expr, env: &Env) -> EvalResult<Expr> {
 }
 
 fn eval_list(exprs: &[Expr], env: &Env) -> EvalResult<Expr> {
-    if exprs.is_empty() {
-        return Ok(Expr::List(vec![]));
+    let (name, args) = match exprs.split_first() {
+        Some(split) => split,
+        None => return Ok(Expr::List(vec![])),
+    };
+
+    if let Some(ret) = eval_list_builtin(name, args, env) {
+        return ret;
     }
 
-    if exprs.len() != 3 {
-        return Err(EvalError::InvalidArgumentCount);
-    }
-
-    let mut exprs = exprs.iter();
-    let [name, a, b] = [(); 3].map(|_| exprs.next().unwrap());
     let name = eval(name, env)?;
 
     let f = match &name {
@@ -68,10 +74,69 @@ fn eval_list(exprs: &[Expr], env: &Env) -> EvalResult<Expr> {
         _ => return Err(EvalError::InvalidFunctionName(name.to_string())),
     };
 
-    let a = eval(a, env)?;
-    let b = eval(b, env)?;
+    if args.len() != 2 {
+        return Err(EvalError::InvalidArgumentCount);
+    }
+
+    let a = eval(&args[0], env)?;
+    let b = eval(&args[1], env)?;
 
     (f.0)(&a, &b)
+}
+
+fn eval_list_builtin(name: &Expr, args: &[Expr], env: &Env) -> Option<Result<Expr, EvalError>> {
+    match name {
+        Expr::Symbol(s) if s.as_ref() == "def!" => Some(eval_builtin_def(args, env)),
+        Expr::Symbol(s) if s.as_ref() == "let*" => Some(eval_builtin_let(args, env)),
+        _ => None,
+    }
+}
+
+fn eval_builtin_def(args: &[Expr], env: &Env) -> Result<Expr, EvalError> {
+    let [key, val] = match args {
+        [k, v] => [k, v],
+        _ => return Err(EvalError::InvalidArgumentCount),
+    };
+
+    let key = match key.as_ref() {
+        Expr::Symbol(s) => s,
+        k => return Err(EvalError::InvalidVariableName(k.to_string())),
+    };
+
+    let val = eval(val, env)?;
+    env.set(key, val.clone());
+
+    Ok(val)
+}
+
+fn eval_builtin_let(args: &[Expr], env: &Env) -> Result<Expr, EvalError> {
+    let [vars, expr] = match args {
+        [v, e] => [v, e],
+        _ => return Err(EvalError::InvalidArgumentCount),
+    };
+
+    let vars = match vars {
+        Expr::List(l) if l.len() % 2 == 0 => l,
+        Expr::Vector(l) if l.len() % 2 == 0 => l,
+        _ => return Err(EvalError::InvalidLetVariables),
+    };
+
+    let let_env = Environment::with_parent(Rc::clone(env));
+
+    for c in vars.chunks_exact(2) {
+        let name = &c[0];
+        let val = &c[1];
+
+        let name = match name {
+            Expr::Symbol(s) => s,
+            _ => return Err(EvalError::InvalidLetVariables),
+        };
+
+        let val = eval(val, &let_env)?;
+        let_env.set(name, val);
+    }
+
+    eval(expr, &let_env)
 }
 
 fn number_args(a: &Expr, b: &Expr) -> EvalResult<(i64, i64)> {

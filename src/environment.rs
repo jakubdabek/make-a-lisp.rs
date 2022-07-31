@@ -48,4 +48,12 @@ impl Environment {
 
         Rc::new(env)
     }
+
+    pub fn with_parent(parent: Env) -> Env {
+        let env = Environment {
+            parent: Some(parent),
+            ..Default::default()
+        };
+        Rc::new(env)
+    }
 }
