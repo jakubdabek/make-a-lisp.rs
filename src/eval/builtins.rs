@@ -157,21 +157,6 @@ fn eval_if(args: &[Expr], env: &Env) -> EvalResult<Expr> {
 fn eval_eq(args: &[Expr], env: &Env) -> EvalResult<Expr> {
     let (a, b) = eval_2(args, env)?;
     Ok(Expr::Bool(a.lenient_eq(&b)))
-    // match eval_2(args, env)? {
-    //     (Expr::Nil, Expr::Nil) => true,
-    //     (Expr::Bool(a), Expr::Bool(b)) => a == b,
-    //     (Expr::Int(a), Expr::Int(b)) => a == b,
-    //     (Expr::String(a), Expr::String(b)) => a == b,
-    //     (Expr::List(a), Expr::List(b)) => a == b,
-    //     (Expr::Vector(a), Expr::Vector(b)) => a == b,
-    //     (Expr::Map(a), Expr::Map(b)) => a == b,
-    //     (Expr::Symbol(a), Expr::Symbol(b)) => a == b,
-    //     (Expr::Keyword(a), Expr::Keyword(b)) => a == b,
-    //     (Expr::Function(a), Expr::Function(b)) => a == b,
-    //     (Expr::Ref(_), _) => unreachable!(),
-    //     (_, Expr::Ref(_)) => unreachable!(),
-    //     _ => false,
-    // }
 }
 
 fn eval_def(args: &[Expr], env: &Env) -> EvalResult<Expr> {
