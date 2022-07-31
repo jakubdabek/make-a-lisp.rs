@@ -2,12 +2,9 @@ use std::{borrow::Cow, cell::RefCell, rc::Rc};
 
 use fnv::FnvHashMap;
 
-use crate::{
-    ast::Expr,
-    eval::{eval_add, eval_div, eval_mul, eval_sub, EvalFunc},
-};
+use crate::ast::Expr;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 pub struct Environment {
     variables: RefCell<FnvHashMap<Cow<'static, str>, Expr>>,
     parent: Option<Env>,
@@ -38,14 +35,8 @@ impl Environment {
 }
 
 impl Environment {
-    pub fn with_builtins() -> Env {
+    pub fn new() -> Env {
         let env = Environment::default();
-
-        env.set_special("+", Expr::Function(EvalFunc(eval_add)));
-        env.set_special("-", Expr::Function(EvalFunc(eval_sub)));
-        env.set_special("*", Expr::Function(EvalFunc(eval_mul)));
-        env.set_special("/", Expr::Function(EvalFunc(eval_div)));
-
         Rc::new(env)
     }
 

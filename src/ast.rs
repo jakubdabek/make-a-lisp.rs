@@ -1,8 +1,8 @@
 use std::rc::Rc;
 
-use crate::eval::EvalFunc;
+use crate::environment::Env;
 
-mod display;
+pub mod display;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
@@ -15,8 +15,45 @@ pub enum Expr {
     Map(Vec<Expr>),
     Symbol(Rc<str>),
     Keyword(Keyword),
-    Function(EvalFunc),
-    Ref(Rc<Expr>),
+    Function(Function),
+}
+
+impl Expr {
+    pub const NIL: Expr = Expr::Nil;
+
+    pub fn as_symbol(&self) -> Option<&str> {
+        match self {
+            Expr::Symbol(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    pub fn as_list_like(&self) -> Option<&[Expr]> {
+        match self {
+            Expr::List(l) | Expr::Vector(l) => Some(l),
+            _ => None,
+        }
+    }
+
+    pub fn lenient_eq(&self, other: &Self) -> bool {
+        if self == other {
+            return true;
+        }
+
+        match (self, other) {
+            (Expr::List(a) | Expr::Vector(a), Expr::List(b) | Expr::Vector(b)) => {
+                a.len() == b.len() && a.iter().zip(b).all(|(a, b)| a.lenient_eq(b))
+            }
+            _ => false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Function {
+    pub bindings: Vec<String>,
+    pub expr: Rc<Expr>,
+    pub closure: Env,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,14 +68,5 @@ impl Keyword {
 impl AsRef<str> for Keyword {
     fn as_ref(&self) -> &str {
         &*self.0
-    }
-}
-
-impl AsRef<Expr> for Expr {
-    fn as_ref(&self) -> &Expr {
-        match self {
-            Expr::Ref(expr) => expr.as_ref(),
-            _ => self,
-        }
     }
 }

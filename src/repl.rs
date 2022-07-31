@@ -12,7 +12,10 @@ use self::repl_funcs::ReplFuncs;
 pub mod repl_funcs;
 
 pub fn main(funcs: impl ReplFuncs) {
-    let env = Environment::with_builtins();
+    let env = Environment::new();
+    funcs
+        .execute("(def! not (fn* [arg] (if arg false true)))", &env)
+        .unwrap();
     loop {
         match rep(&funcs, &env) {
             Ok(_) => {}

@@ -9,27 +9,40 @@ impl fmt::Display for Keyword {
     }
 }
 
-struct AsList<'a>(&'a [Expr], [char; 2]);
+pub struct Join<'a, D>(pub &'a [D], pub &'a str);
 
-impl fmt::Display for AsList<'_> {
+impl<D: fmt::Display> fmt::Display for Join<'_, D> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self(list, [start, end]) = self;
-        f.write_char(*start)?;
+        let Self(list, delim) = self;
+
         let mut it = list.iter();
         if let Some(first) = it.next() {
             fmt::Display::fmt(first, f)?;
             for elem in it {
-                f.write_char(' ')?;
+                f.write_str(delim)?;
                 fmt::Display::fmt(elem, f)?;
             }
         }
-        f.write_char(*end)
+        Ok(())
+    }
+}
+
+pub struct Surrounded<D>(pub D, pub [char; 2]);
+
+impl<D: fmt::Display> fmt::Display for Surrounded<D> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self(x, [start, end]) = self;
+        f.write_char(*start)?;
+        fmt::Display::fmt(x, f)?;
+        f.write_char(*end)?;
+
+        Ok(())
     }
 }
 
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.as_ref() {
+        match self {
             Expr::Nil => f.write_str("nil"),
             Expr::Bool(b) => write!(f, "{b}"),
             Expr::Int(i) => write!(f, "{i}"),
@@ -42,12 +55,13 @@ impl fmt::Display for Expr {
                 }
             }
             Expr::Keyword(k) => fmt::Display::fmt(k, f),
-            Expr::List(list) => fmt::Display::fmt(&AsList(list, ['(', ')']), f),
-            Expr::Vector(vector) => fmt::Display::fmt(&AsList(vector, ['[', ']']), f),
-            Expr::Map(map) => fmt::Display::fmt(&AsList(map, ['{', '}']), f),
+            Expr::List(list) => fmt::Display::fmt(&Surrounded(Join(list, " "), ['(', ')']), f),
+            Expr::Vector(vector) => {
+                fmt::Display::fmt(&Surrounded(Join(vector, " "), ['[', ']']), f)
+            }
+            Expr::Map(map) => fmt::Display::fmt(&Surrounded(Join(map, " "), ['{', '}']), f),
             Expr::Symbol(s) => write!(f, "{s}"),
             Expr::Function(_) => f.write_str("#<function>"),
-            Expr::Ref(_) => unreachable!(),
         }
     }
 }
