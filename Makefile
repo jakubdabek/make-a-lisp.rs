@@ -3,13 +3,16 @@ STEPS := $(DEBUG_STEPS) step0_repl step1_read_print step2_eval step3_env step4_i
 
 CARGO := $(or $(CARGO),cargo)
 
-all: $(STEPS)
+all: buildsteps $(STEPS)
+
+buildsteps:
+	$(CARGO) build --release --bins
 
 step%: .FORCE
 	$(CARGO) build --release --bin $@
 	cp target/release/$@$(EXEC_EXT) ./$@
 
-.PHONY: test clean fmt .FORCE
+.PHONY: test buildsteps clean fmt .FORCE
 
 test:
 	$(CARGO) test --all-targets
