@@ -5,23 +5,29 @@ use crate::{
     environment::{Env, Environment},
 };
 
-use super::{eval, EvalError, EvalResult};
+use super::{
+    eval, EvalError, EvalResult,
+    Thunk::{self, Evaluated, Unevaluated},
+};
 
 const ARITHMETIC_BUILTINS: &[&str] = &["+", "-", "*", "/"];
 
 const COMPARISON_BUILTINS: &[&str] = &["<", ">", ">=", "<="];
 
-pub(super) fn eval_list_builtin(name: &Expr, args: &[Expr], env: &Env) -> Option<EvalResult<Expr>> {
-    let name = match name {
-        Expr::Symbol(s) => s,
-        _ => return None,
-    };
-    let res = match name.as_ref() {
+pub(super) fn eval_list_builtin(
+    name: &Expr,
+    args: &[Expr],
+    env: &Env,
+) -> Option<EvalResult<Thunk>> {
+    let name: &str = name.as_symbol()?.as_ref();
+
+    if let Some(thunk_result) = eval_thunk_builtin(name, args, env) {
+        return Some(thunk_result);
+    }
+
+    let res = match name {
         "def!" => eval_def(args, env),
-        "let*" => eval_let(args, env),
         "fn*" => eval_fn(args, env),
-        "do" => eval_do(args, env),
-        "if" => eval_if(args, env),
         "=" => eval_eq(args, env),
         "list" => eval_args(args, env).map(Expr::List),
         "list?" => Ok(Expr::Bool(matches!(args, [Expr::List(_)]))),
@@ -50,12 +56,18 @@ pub(super) fn eval_list_builtin(name: &Expr, args: &[Expr], env: &Env) -> Option
         _ => return None,
     };
 
-    Some(res)
+    Some(res.map(Evaluated))
 }
 
-fn eval_do(args: &[Expr], env: &Env) -> EvalResult<Expr> {
-    args.iter()
-        .try_fold(Expr::Nil, |_, arg| super::eval(arg, env))
+fn eval_thunk_builtin(name: &str, args: &[Expr], env: &Env) -> Option<EvalResult<Thunk>> {
+    let res = match name {
+        "let*" => eval_let(args, env),
+        "do" => eval_do(args, env),
+        "if" => eval_if(args, env),
+        _ => return None,
+    };
+
+    Some(res)
 }
 
 fn eval_args(args: &[Expr], env: &Env) -> EvalResult<Vec<Expr>> {
@@ -111,6 +123,20 @@ fn eval_cmp(s: &str, args: &[Expr], env: &Env) -> EvalResult<Expr> {
     Ok(Expr::Bool(res))
 }
 
+fn eval_do(args: &[Expr], env: &Env) -> EvalResult<Thunk> {
+    let thunk = match args {
+        [] => Evaluated(Expr::Nil),
+        [args @ .., last] => {
+            let _ = args
+                .iter()
+                .try_fold(Expr::Nil, |_, arg| super::eval(arg, env))?;
+            Unevaluated(last.clone(), env.clone())
+        }
+    };
+
+    Ok(thunk)
+}
+
 fn eval_fn(args: &[Expr], env: &Env) -> EvalResult<Expr> {
     let [bindings, expr] = args_n(args)?;
     let bindings = match bindings {
@@ -136,7 +162,7 @@ fn eval_fn(args: &[Expr], env: &Env) -> EvalResult<Expr> {
     }))
 }
 
-fn eval_if(args: &[Expr], env: &Env) -> EvalResult<Expr> {
+fn eval_if(args: &[Expr], env: &Env) -> EvalResult<Thunk> {
     let [cond, success, failure] = match args_n(args) {
         Ok([c, s, f]) => [c, s, f],
         Err(EvalError::InvalidArgumentCount) => {
@@ -149,8 +175,8 @@ fn eval_if(args: &[Expr], env: &Env) -> EvalResult<Expr> {
     let cond = eval(cond, env)?;
 
     match cond {
-        Expr::Nil | Expr::Bool(false) => eval(failure, env),
-        _ => eval(success, env),
+        Expr::Nil | Expr::Bool(false) => Ok(Unevaluated(failure.clone(), env.clone())),
+        _ => Ok(Unevaluated(success.clone(), env.clone())),
     }
 }
 
@@ -171,7 +197,7 @@ fn eval_def(args: &[Expr], env: &Env) -> EvalResult<Expr> {
     Ok(val)
 }
 
-fn eval_let(args: &[Expr], env: &Env) -> EvalResult<Expr> {
+fn eval_let(args: &[Expr], env: &Env) -> EvalResult<Thunk> {
     let [vars, expr] = args_n(args)?;
 
     let vars = match vars {
@@ -192,5 +218,5 @@ fn eval_let(args: &[Expr], env: &Env) -> EvalResult<Expr> {
         let_env.set(name, val);
     }
 
-    super::eval(expr, &let_env)
+    Ok(Unevaluated(expr.clone(), let_env))
 }

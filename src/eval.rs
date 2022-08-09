@@ -29,27 +29,55 @@ pub enum EvalError {
 
 pub type EvalResult<T> = std::result::Result<T, EvalError>;
 
+#[derive(Debug)]
+enum Thunk {
+    Evaluated(Expr),
+    Unevaluated(Expr, Env),
+}
+
+use Thunk::{Evaluated, Unevaluated};
+
 pub fn eval(expr: &Expr, env: &Env) -> EvalResult<Expr> {
-    match expr {
-        Expr::Symbol(sym) => match env.get(&**sym) {
-            Some(f) => Ok(f),
-            None => Err(EvalError::UnknownSymbol(sym.clone())),
-        },
-        Expr::List(v) => eval_list(v, env),
-        Expr::Vector(v) => Ok(Expr::Vector(
-            v.iter().map(|e| eval(e, env)).collect::<EvalResult<_>>()?,
-        )),
-        Expr::Map(m) => Ok(Expr::Map(
-            m.iter().map(|e| eval(e, env)).collect::<EvalResult<_>>()?,
-        )),
-        expr => Ok(expr.clone()),
+    let mut expr_owner;
+    let mut expr = &*expr;
+    let mut env_owner;
+    let mut env = &*env;
+    loop {
+        let evaluated = match expr {
+            Expr::Symbol(sym) => match env.get(&**sym) {
+                Some(f) => Ok(f),
+                None => Err(EvalError::UnknownSymbol(sym.clone())),
+            },
+            Expr::List(v) => {
+                let thunk = eval_list(v, env)?;
+                match thunk {
+                    Evaluated(e) => Ok(e),
+                    Unevaluated(e, new_env) => {
+                        expr_owner = e;
+                        expr = &expr_owner;
+                        env_owner = new_env;
+                        env = &env_owner;
+                        continue;
+                    }
+                }
+            }
+            Expr::Vector(v) => Ok(Expr::Vector(
+                v.iter().map(|e| eval(e, env)).collect::<EvalResult<_>>()?,
+            )),
+            Expr::Map(m) => Ok(Expr::Map(
+                m.iter().map(|e| eval(e, env)).collect::<EvalResult<_>>()?,
+            )),
+            expr => Ok(expr.clone()),
+        };
+
+        break evaluated;
     }
 }
 
-fn eval_list(exprs: &[Expr], env: &Env) -> EvalResult<Expr> {
+fn eval_list(exprs: &[Expr], env: &Env) -> EvalResult<Thunk> {
     let (name, args) = match exprs.split_first() {
         Some(split) => split,
-        None => return Ok(Expr::List(vec![])),
+        None => return Ok(Evaluated(Expr::List(vec![]))),
     };
 
     if let Some(ret) = eval_list_builtin(name, args, env) {
@@ -78,5 +106,5 @@ fn eval_list(exprs: &[Expr], env: &Env) -> EvalResult<Expr> {
         args_env.set(binding, arg);
     }
 
-    eval(&f.expr, &args_env)
+    Ok(Unevaluated(Expr::clone(&f.expr), args_env))
 }
