@@ -3,6 +3,7 @@ use std::rc::Rc;
 use crate::{
     ast::{display::Join, Expr, Function},
     environment::{Env, Environment},
+    parser,
 };
 
 use super::{
@@ -51,6 +52,9 @@ pub(super) fn eval_list_builtin(
         "println" => eval_args(args, env)
             .map(|args| println!("{}", Join(&args, " ")))
             .map(|_| Expr::Nil),
+        "slurp" => eval_slurp(args, env),
+        "read-string" => eval_read_string(args, env),
+        "eval" => eval_eval(args, env),
         n if ARITHMETIC_BUILTINS.contains(&n) => eval_arithmetic(n, args, env),
         n if COMPARISON_BUILTINS.contains(&n) => eval_cmp(n, args, env),
         _ => return None,
@@ -74,6 +78,12 @@ fn eval_args(args: &[Expr], env: &Env) -> EvalResult<Vec<Expr>> {
     args.iter().map(|arg| super::eval(arg, env)).collect()
 }
 
+#[cfg(feature = "nightly")]
+fn eval_n<const N: usize>(args: &[Expr], env: &Env) -> EvalResult<[Expr; N]> {
+    let args = args_n(args)?;
+    args.try_map(|arg| super::eval(&arg, env))
+}
+
 fn args_n<const N: usize>(args: &[Expr]) -> EvalResult<&[Expr; N]> {
     args.try_into().map_err(|_| EvalError::InvalidArgumentCount)
 }
@@ -95,6 +105,33 @@ fn eval_number_args(args: &[Expr], env: &Env) -> EvalResult<(i64, i64)> {
             b.to_string(),
         ])),
     }
+}
+
+fn eval_read_string(args: &[Expr], env: &Env) -> EvalResult<Expr> {
+    let [arg] = args_n(args)?;
+    let arg = super::eval(arg, env)?;
+    let arg = arg
+        .as_string()
+        .ok_or_else(|| EvalError::InvalidArgumentTypes(vec![arg.to_string()]))?;
+
+    Ok(parser::parse(arg)?)
+}
+
+fn eval_slurp(args: &[Expr], env: &Env) -> EvalResult<Expr> {
+    let [arg] = args_n(args)?;
+    let arg = super::eval(arg, env)?;
+    let arg = arg
+        .as_string()
+        .ok_or_else(|| EvalError::InvalidArgumentTypes(vec![arg.to_string()]))?;
+
+    let content = std::fs::read_to_string(arg)?;
+    Ok(Expr::String(content))
+}
+
+fn eval_eval(args: &[Expr], env: &Env) -> EvalResult<Expr> {
+    let [arg] = args_n(args)?;
+    let expr = super::eval(arg, env)?;
+    super::eval(&expr, env)
 }
 
 fn eval_arithmetic(s: &str, args: &[Expr], env: &Env) -> EvalResult<Expr> {

@@ -1,8 +1,9 @@
-use std::rc::Rc;
+use std::{io, rc::Rc};
 
 use crate::{
     ast::Expr,
     environment::{Env, Environment},
+    parser::ParseError,
 };
 
 use self::builtins::eval_list_builtin;
@@ -25,6 +26,10 @@ pub enum EvalError {
     InvalidVariableName(String),
     #[error("invalid variables for let*")]
     InvalidLetVariables,
+    #[error("parsing error: {0}")]
+    ParseError(#[from] ParseError),
+    #[error("IO error: {0}")]
+    IOError(#[from] io::Error),
 }
 
 pub type EvalResult<T> = std::result::Result<T, EvalError>;

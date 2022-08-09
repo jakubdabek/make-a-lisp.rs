@@ -12,10 +12,8 @@ use self::repl_funcs::ReplFuncs;
 pub mod repl_funcs;
 
 pub fn main(funcs: impl ReplFuncs) {
-    let env = Environment::new();
-    funcs
-        .execute("(def! not (fn* [arg] (if arg false true)))", &env)
-        .unwrap();
+    let env = define_builtins(&funcs);
+
     loop {
         match rep(&funcs, &env) {
             Ok(_) => {}
@@ -32,6 +30,22 @@ pub fn main(funcs: impl ReplFuncs) {
             }
         }
     }
+}
+
+pub fn define_builtins(funcs: &impl ReplFuncs) -> Env {
+    let env = Environment::new();
+    funcs
+        .execute("(def! not (fn* [arg] (if arg false true)))", &env)
+        .unwrap();
+
+    funcs
+        .execute(
+            r##"(def! load-file (fn* (f) (eval (read-string (str "(do " (slurp f) "\nnil)")))))"##,
+            &env,
+        )
+        .unwrap();
+
+    env
 }
 
 pub fn rep(funcs: &impl ReplFuncs, env: &Env) -> Result<()> {

@@ -28,6 +28,13 @@ impl Expr {
         }
     }
 
+    pub fn as_string(&self) -> Option<&str> {
+        match self {
+            Expr::String(s) => Some(s),
+            _ => None,
+        }
+    }
+
     pub fn as_list_like(&self) -> Option<&[Expr]> {
         match self {
             Expr::List(l) | Expr::Vector(l) => Some(l),
