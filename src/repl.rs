@@ -33,7 +33,7 @@ pub fn main(funcs: impl ReplFuncs) {
 }
 
 pub fn define_builtins(funcs: &impl ReplFuncs) -> Env {
-    let env = Environment::new();
+    let env = Environment::with_builtins();
     funcs
         .execute("(def! not (fn* [arg] (if arg false true)))", &env)
         .unwrap();

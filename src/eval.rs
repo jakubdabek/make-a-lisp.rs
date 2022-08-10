@@ -8,7 +8,7 @@ use crate::{
 
 use self::builtins::eval_list_builtin;
 
-mod builtins;
+pub mod builtins;
 
 #[derive(Debug, thiserror::Error)]
 pub enum EvalError {

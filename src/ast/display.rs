@@ -5,7 +5,8 @@ use super::{Expr, Keyword};
 impl fmt::Display for Keyword {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_char(':')?;
-        f.write_str(self.as_ref().trim_matches('\0'))
+        f.write_str(self.as_ref().trim_matches('\0'))?;
+        Ok(())
     }
 }
 
@@ -62,6 +63,13 @@ impl fmt::Display for Expr {
             Expr::Map(map) => fmt::Display::fmt(&Surrounded(Join(map, " "), ['{', '}']), f),
             Expr::Symbol(s) => write!(f, "{s}"),
             Expr::Function(_) => f.write_str("#<function>"),
+            Expr::BuiltinFunction(fname) => write!(f, "#<builtin fn {}>", fname),
+            Expr::Atom(a) => {
+                f.write_str("(atom ")?;
+                fmt::Display::fmt(&*a.borrow(), f)?;
+                f.write_str(")")?;
+                Ok(())
+            }
         }
     }
 }

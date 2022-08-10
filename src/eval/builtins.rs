@@ -11,67 +11,96 @@ use super::{
     Thunk::{self, Evaluated, Unevaluated},
 };
 
-const ARITHMETIC_BUILTINS: &[&str] = &["+", "-", "*", "/"];
+// const ARITHMETIC_BUILTINS: &[&str] = &["+", "-", "*", "/"];
+// const COMPARISON_BUILTINS: &[&str] = &["<", ">", ">=", "<="];
 
-const COMPARISON_BUILTINS: &[&str] = &["<", ">", ">=", "<="];
+pub(super) type BuiltinThunkFn = fn(&[Expr], &Env) -> EvalResult<Thunk>;
+pub type BuiltinFn = fn(&[Expr], &Env) -> EvalResult<Expr>;
+
+pub const BUILTINS: &[(&str, BuiltinFn)] = &[
+    ("def!", eval_def),
+    ("fn*", eval_fn),
+    ("=", eval_eq),
+    ("list", |args, env| eval_args(args, env).map(Expr::List)),
+    ("list?", |args, env| {
+        eval_1(args, env).map(|l| Expr::Bool(matches!(l, Expr::List(_))))
+    }),
+    ("empty?", |args, env| {
+        eval_1(args, env)
+            .map(|l| l.as_list_like().map(|l| l.is_empty()).unwrap_or(false))
+            .map(Expr::Bool)
+    }),
+    ("count", |args, env| {
+        eval_1(args, env)
+            .map(|l| l.as_list_like().map(|l| l.len() as i64).unwrap_or(0))
+            .map(Expr::Int)
+    }),
+    ("pr-str", |args, env| {
+        eval_args(args, env)
+            .map(|args| format!("{:#}", Join(&args, " ")))
+            .map(Expr::String)
+    }),
+    ("str", |args, env| {
+        eval_args(args, env)
+            .map(|args| format!("{}", Join(&args, "")))
+            .map(Expr::String)
+    }),
+    ("prn", |args, env| {
+        eval_args(args, env)
+            .map(|args| println!("{:#}", Join(&args, " ")))
+            .map(|_| Expr::Nil)
+    }),
+    ("println", |args, env| {
+        eval_args(args, env)
+            .map(|args| println!("{}", Join(&args, " ")))
+            .map(|_| Expr::Nil)
+    }),
+    ("slurp", eval_slurp),
+    ("read-string", eval_read_string),
+    ("eval", eval_eval),
+    ("atom", |args, env| eval_1(args, env).map(Expr::atom)),
+    ("atom?", |args, env| {
+        eval_1(args, env).map(|e| Expr::Bool(matches!(e, Expr::Atom(_))))
+    }),
+    ("deref", eval_deref),
+    ("reset!", eval_reset),
+    ("swap!", eval_swap),
+    ("+", |args, env| eval_arithmetic("+", args, env)),
+    ("-", |args, env| eval_arithmetic("-", args, env)),
+    ("*", |args, env| eval_arithmetic("*", args, env)),
+    ("/", |args, env| eval_arithmetic("/", args, env)),
+    (">", |args, env| eval_cmp(">", args, env)),
+    ("<", |args, env| eval_cmp("<", args, env)),
+    (">=", |args, env| eval_cmp(">=", args, env)),
+    ("<=", |args, env| eval_cmp("<=", args, env)),
+];
+
+pub(super) const THUNK_BUILTINS: &[(&str, BuiltinThunkFn)] =
+    &[("let*", eval_let), ("do", eval_do), ("if", eval_if)];
 
 pub(super) fn eval_list_builtin(
     name: &Expr,
     args: &[Expr],
     env: &Env,
 ) -> Option<EvalResult<Thunk>> {
-    let name: &str = name.as_symbol()?.as_ref();
+    let name: &str = name.as_symbol().or_else(|| name.as_builtin())?.as_ref();
 
     if let Some(thunk_result) = eval_thunk_builtin(name, args, env) {
         return Some(thunk_result);
     }
 
-    let res = match name {
-        "def!" => eval_def(args, env),
-        "fn*" => eval_fn(args, env),
-        "=" => eval_eq(args, env),
-        "list" => eval_args(args, env).map(Expr::List),
-        "list?" => Ok(Expr::Bool(matches!(args, [Expr::List(_)]))),
-        "empty?" => args_n(args)
-            .and_then(|[arg]| eval(arg, env))
-            .map(|l| l.as_list_like().map(|l| l.is_empty()).unwrap_or(false))
-            .map(Expr::Bool),
-        "count" => args_n(args)
-            .and_then(|[arg]| eval(arg, env))
-            .map(|l| l.as_list_like().map(|l| l.len() as i64).unwrap_or(0))
-            .map(Expr::Int),
-        "pr-str" => eval_args(args, env)
-            .map(|args| format!("{:#}", Join(&args, " ")))
-            .map(Expr::String),
-        "str" => eval_args(args, env)
-            .map(|args| format!("{}", Join(&args, "")))
-            .map(Expr::String),
-        "prn" => eval_args(args, env)
-            .map(|args| println!("{:#}", Join(&args, " ")))
-            .map(|_| Expr::Nil),
-        "println" => eval_args(args, env)
-            .map(|args| println!("{}", Join(&args, " ")))
-            .map(|_| Expr::Nil),
-        "slurp" => eval_slurp(args, env),
-        "read-string" => eval_read_string(args, env),
-        "eval" => eval_eval(args, env),
-        n if ARITHMETIC_BUILTINS.contains(&n) => eval_arithmetic(n, args, env),
-        n if COMPARISON_BUILTINS.contains(&n) => eval_cmp(n, args, env),
-        _ => return None,
-    };
-
-    Some(res.map(Evaluated))
+    BUILTINS
+        .iter()
+        .find(|&&(fname, _)| fname == name)
+        .map(|(_, f)| f(args, env))
+        .map(|res| res.map(Evaluated))
 }
 
 fn eval_thunk_builtin(name: &str, args: &[Expr], env: &Env) -> Option<EvalResult<Thunk>> {
-    let res = match name {
-        "let*" => eval_let(args, env),
-        "do" => eval_do(args, env),
-        "if" => eval_if(args, env),
-        _ => return None,
-    };
-
-    Some(res)
+    THUNK_BUILTINS
+        .iter()
+        .find(|&&(fname, _)| fname == name)
+        .map(|(_, f)| f(args, env))
 }
 
 fn eval_args(args: &[Expr], env: &Env) -> EvalResult<Vec<Expr>> {
@@ -86,6 +115,11 @@ fn eval_n<const N: usize>(args: &[Expr], env: &Env) -> EvalResult<[Expr; N]> {
 
 fn args_n<const N: usize>(args: &[Expr]) -> EvalResult<&[Expr; N]> {
     args.try_into().map_err(|_| EvalError::InvalidArgumentCount)
+}
+
+fn eval_1(args: &[Expr], env: &Env) -> EvalResult<Expr> {
+    let [a] = args_n(args)?;
+    super::eval(a, env)
 }
 
 fn eval_2(args: &[Expr], env: &Env) -> EvalResult<(Expr, Expr)> {
@@ -108,8 +142,7 @@ fn eval_number_args(args: &[Expr], env: &Env) -> EvalResult<(i64, i64)> {
 }
 
 fn eval_read_string(args: &[Expr], env: &Env) -> EvalResult<Expr> {
-    let [arg] = args_n(args)?;
-    let arg = super::eval(arg, env)?;
+    let arg = eval_1(args, env)?;
     let arg = arg
         .as_string()
         .ok_or_else(|| EvalError::InvalidArgumentTypes(vec![arg.to_string()]))?;
@@ -118,8 +151,7 @@ fn eval_read_string(args: &[Expr], env: &Env) -> EvalResult<Expr> {
 }
 
 fn eval_slurp(args: &[Expr], env: &Env) -> EvalResult<Expr> {
-    let [arg] = args_n(args)?;
-    let arg = super::eval(arg, env)?;
+    let arg = eval_1(args, env)?;
     let arg = arg
         .as_string()
         .ok_or_else(|| EvalError::InvalidArgumentTypes(vec![arg.to_string()]))?;
@@ -129,9 +161,49 @@ fn eval_slurp(args: &[Expr], env: &Env) -> EvalResult<Expr> {
 }
 
 fn eval_eval(args: &[Expr], env: &Env) -> EvalResult<Expr> {
-    let [arg] = args_n(args)?;
-    let expr = super::eval(arg, env)?;
+    let expr = eval_1(args, env)?;
+    let env = env.top_level_env();
     super::eval(&expr, env)
+}
+
+fn eval_deref(args: &[Expr], env: &Env) -> EvalResult<Expr> {
+    let expr = eval_1(args, env)?;
+    match expr {
+        Expr::Atom(a) => Ok(a.borrow().clone()),
+        _ => Err(EvalError::InvalidArgumentTypes(vec![expr.to_string()])),
+    }
+}
+
+fn eval_reset(args: &[Expr], env: &Env) -> EvalResult<Expr> {
+    let (atom, expr) = eval_2(args, env)?;
+    let atom = match atom {
+        Expr::Atom(a) => a,
+        _ => return Err(EvalError::InvalidArgumentTypes(vec![atom.to_string()])),
+    };
+
+    *atom.borrow_mut() = expr.clone();
+    Ok(expr)
+}
+
+fn eval_swap(args: &[Expr], env: &Env) -> EvalResult<Expr> {
+    let mut args = eval_args(args, env)?;
+    let atom_ref = match &mut args[..] {
+        [atom, func, ..] => {
+            std::mem::swap(atom, func);
+            let (atom, _func) = (func, atom);
+            let atom_ref = match atom {
+                Expr::Atom(a) => a.clone(),
+                _ => return Err(EvalError::InvalidArgumentTypes(vec![atom.to_string()])),
+            };
+            *atom = atom_ref.borrow().clone();
+            atom_ref
+        }
+        _ => return Err(EvalError::InvalidArgumentCount),
+    };
+
+    let value = eval(&Expr::List(args), env)?;
+    *atom_ref.borrow_mut() = value.clone();
+    Ok(value)
 }
 
 fn eval_arithmetic(s: &str, args: &[Expr], env: &Env) -> EvalResult<Expr> {

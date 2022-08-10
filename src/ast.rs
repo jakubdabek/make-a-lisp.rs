@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use crate::environment::Env;
 
@@ -16,14 +16,27 @@ pub enum Expr {
     Symbol(Rc<str>),
     Keyword(Keyword),
     Function(Function),
+    BuiltinFunction(&'static str),
+    Atom(Rc<RefCell<Expr>>),
 }
 
 impl Expr {
     pub const NIL: Expr = Expr::Nil;
 
+    pub fn atom(e: Expr) -> Expr {
+        Self::Atom(Rc::new(RefCell::new(e)))
+    }
+
     pub fn as_symbol(&self) -> Option<&str> {
         match self {
             Expr::Symbol(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    pub fn as_builtin(&self) -> Option<&'static str> {
+        match self {
+            Expr::BuiltinFunction(s) => Some(s),
             _ => None,
         }
     }

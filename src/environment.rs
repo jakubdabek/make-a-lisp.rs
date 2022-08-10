@@ -2,7 +2,7 @@ use std::{borrow::Cow, cell::RefCell, rc::Rc};
 
 use fnv::FnvHashMap;
 
-use crate::ast::Expr;
+use crate::{ast::Expr, eval::builtins::BUILTINS};
 
 #[derive(Debug, Default, PartialEq)]
 pub struct Environment {
@@ -13,6 +13,12 @@ pub struct Environment {
 pub type Env = Rc<Environment>;
 
 impl Environment {
+    pub fn top_level_env<'a>(self: &'a Env) -> &'a Env {
+        std::iter::successors(Some(self), |env| env.parent.as_ref())
+            .last()
+            .unwrap()
+    }
+
     pub fn get(&self, name: &str) -> Option<Expr> {
         self.variables
             .borrow()
@@ -38,6 +44,15 @@ impl Environment {
     pub fn new() -> Env {
         let env = Environment::default();
         Rc::new(env)
+    }
+
+    pub fn with_builtins() -> Env {
+        let env = Self::new();
+        for (builtin, _) in BUILTINS {
+            env.set_special(builtin, Expr::BuiltinFunction(builtin));
+        }
+
+        env
     }
 
     pub fn with_parent(parent: Env) -> Env {
