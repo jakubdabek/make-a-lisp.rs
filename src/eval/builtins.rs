@@ -17,6 +17,12 @@ use super::{
 pub(super) type BuiltinThunkFn = fn(&[Expr], &Env) -> EvalResult<Thunk>;
 pub type BuiltinFn = fn(&[Expr], &Env) -> EvalResult<Expr>;
 
+macro_rules! number_op {
+    ( $func:ident ( $op:tt ) ) => {
+        |args, env| $func(|a, b| a $op b, args, env)
+    };
+}
+
 pub const BUILTINS: &[(&str, BuiltinFn)] = &[
     ("def!", eval_def),
     ("fn*", eval_fn),
@@ -65,14 +71,14 @@ pub const BUILTINS: &[(&str, BuiltinFn)] = &[
     ("deref", eval_deref),
     ("reset!", eval_reset),
     ("swap!", eval_swap),
-    ("+", |args, env| eval_arithmetic("+", args, env)),
-    ("-", |args, env| eval_arithmetic("-", args, env)),
-    ("*", |args, env| eval_arithmetic("*", args, env)),
-    ("/", |args, env| eval_arithmetic("/", args, env)),
-    (">", |args, env| eval_cmp(">", args, env)),
-    ("<", |args, env| eval_cmp("<", args, env)),
-    (">=", |args, env| eval_cmp(">=", args, env)),
-    ("<=", |args, env| eval_cmp("<=", args, env)),
+    ("+", number_op!(eval_arithmetic(+))),
+    ("-", number_op!(eval_arithmetic(-))),
+    ("*", number_op!(eval_arithmetic(*))),
+    ("/", number_op!(eval_arithmetic(/))),
+    (">", number_op!(eval_cmp(>))),
+    ("<", number_op!(eval_cmp(<))),
+    (">=", number_op!(eval_cmp(>=))),
+    ("<=", number_op!(eval_cmp(<=))),
 ];
 
 pub(super) const THUNK_BUILTINS: &[(&str, BuiltinThunkFn)] =
@@ -206,28 +212,16 @@ fn eval_swap(args: &[Expr], env: &Env) -> EvalResult<Expr> {
     Ok(value)
 }
 
-fn eval_arithmetic(s: &str, args: &[Expr], env: &Env) -> EvalResult<Expr> {
+fn eval_arithmetic(op: impl FnOnce(i64, i64) -> i64, args: &[Expr], env: &Env) -> EvalResult<Expr> {
     let (a, b) = eval_number_args(args, env)?;
-    let res = match s {
-        "+" => a + b,
-        "-" => a - b,
-        "*" => a * b,
-        "/" => a / b,
-        _ => unreachable!(),
-    };
+    let res = op(a, b);
 
     Ok(Expr::Int(res))
 }
 
-fn eval_cmp(s: &str, args: &[Expr], env: &Env) -> EvalResult<Expr> {
+fn eval_cmp(op: impl FnOnce(i64, i64) -> bool, args: &[Expr], env: &Env) -> EvalResult<Expr> {
     let (a, b) = eval_number_args(args, env)?;
-    let res = match s {
-        "<" => a < b,
-        ">" => a > b,
-        "<=" => a <= b,
-        ">=" => a >= b,
-        _ => unreachable!(),
-    };
+    let res = op(a, b);
 
     Ok(Expr::Bool(res))
 }
