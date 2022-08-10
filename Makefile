@@ -1,5 +1,14 @@
 DEBUG_STEPS := step_debug_eval step_debug_no_eval
-STEPS := $(DEBUG_STEPS) step0_repl step1_read_print step2_eval step3_env step4_if_fn_do step5_tco step6_file
+STEPS := $(DEBUG_STEPS) \
+	step0_repl \
+	step1_read_print \
+	step2_eval \
+	step3_env \
+	step4_if_fn_do \
+	step5_tco \
+	step6_file \
+	step7_quote \
+	# end of STEPS
 
 CARGO := $(or $(CARGO),cargo)
 
