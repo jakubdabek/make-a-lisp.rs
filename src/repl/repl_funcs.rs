@@ -77,3 +77,26 @@ where
         self.1.print(expr)
     }
 }
+
+#[derive(Debug, Clone, Copy)]
+pub struct NoPrint<Funcs>(pub Funcs);
+
+impl<Funcs: ReplFuncs> ReplFuncs for NoPrint<Funcs> {
+    type Value = Funcs::Value;
+
+    fn is_interactive(&self) -> bool {
+        self.0.is_interactive()
+    }
+
+    fn read(&self) -> Result<String> {
+        self.0.read()
+    }
+
+    fn execute(&self, s: &str, env: &Env) -> Result<Self::Value> {
+        self.0.execute(s, env)
+    }
+
+    fn print(&self, _expr: Self::Value) -> Result<String> {
+        Ok(String::new())
+    }
+}

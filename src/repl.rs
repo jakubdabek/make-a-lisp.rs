@@ -7,20 +7,17 @@ use crate::{
     parser::{self, ParseError},
 };
 
-use self::repl_funcs::{ReplFuncs, WithStaticInput};
+use self::repl_funcs::{NoPrint, ReplFuncs, WithStaticInput};
 
 pub mod repl_funcs;
 
 pub fn main(funcs: impl ReplFuncs) {
     let mut args = std::env::args().skip(1);
     match args.next() {
-        Some(program) => repl(WithStaticInput::new(
-            std::fs::read_to_string(program)
-                .unwrap()
-                .lines()
-                .map(<_>::to_owned),
+        Some(program) => repl(NoPrint(WithStaticInput::new(
+            std::iter::once(format!("(load-file {:?})", program)),
             funcs,
-        )),
+        ))),
         None => repl(funcs),
     }
 }
@@ -76,7 +73,8 @@ pub fn rep(funcs: &impl ReplFuncs, env: &Env) -> Result<()> {
     let command = funcs.read()?;
     let result = funcs.execute(&command, env)?;
     let repr = funcs.print(result)?;
-    println!("{repr}");
+    print!("{repr}");
+    std::io::stdout().flush().unwrap();
     Ok(())
 }
 
@@ -108,7 +106,7 @@ pub fn execute_no_eval(s: &str, _env: &Env) -> Result<Expr> {
 }
 
 pub fn print(expr: Expr) -> Result<String> {
-    Ok(format!("{:#}", expr))
+    Ok(format!("{:#}\n", expr))
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
