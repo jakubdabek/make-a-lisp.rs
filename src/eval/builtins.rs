@@ -1,9 +1,4 @@
-
-
-use crate::{
-    ast::{Expr},
-    environment::{Env},
-};
+use crate::{ast::Expr, environment::Env};
 
 use super::{
     eval, EvalError, EvalResult,
@@ -13,6 +8,7 @@ use super::{
 mod atoms;
 mod control_flow;
 mod lists;
+mod quoting;
 mod strings;
 
 mod prelude {
@@ -24,7 +20,7 @@ mod prelude {
     };
 }
 
-use self::{atoms::*, control_flow::*, lists::*, strings::*};
+use self::{atoms::*, control_flow::*, lists::*, quoting::*, strings::*};
 
 // const ARITHMETIC_BUILTINS: &[&str] = &["+", "-", "*", "/"];
 // const COMPARISON_BUILTINS: &[&str] = &["<", ">", ">=", "<="];
@@ -42,24 +38,36 @@ pub const BUILTINS: &[(&str, BuiltinFn)] = &[
     ("def!", eval_def),
     ("fn*", eval_fn),
     ("=", eval_eq),
+    // lists
     ("list", eval_list),
     ("list?", eval_is_list),
     ("empty?", eval_is_empty),
     ("count", eval_count),
     ("cons", eval_cons),
     ("concat", eval_concat),
+    ("vec", eval_vec),
+    ("vector?", eval_is_vector),
+    // strings
     ("pr-str", eval_pr_str),
     ("str", eval_str),
     ("prn", eval_prn),
     ("println", eval_println),
     ("slurp", eval_slurp),
     ("read-string", eval_read_string),
+    // quoting
     ("eval", eval_eval),
+    ("quote", eval_quote),
+    // ("unquote", eval_unquote),
+    ("quasiquote", eval_quasiquote),
+    ("quasiquoteexpand", eval_quasiquote_expand),
+    // ("splice-unquote", eval_splice_unquote),
+    // atoms
     ("atom", eval_atom),
     ("atom?", eval_is_atom),
     ("deref", eval_deref),
     ("reset!", eval_reset),
     ("swap!", eval_swap),
+    // numbers
     ("+", number_op!(eval_arithmetic(+))),
     ("-", number_op!(eval_arithmetic(-))),
     ("*", number_op!(eval_arithmetic(*))),
@@ -78,7 +86,7 @@ pub(super) fn eval_list_builtin(
     args: &[Expr],
     env: &Env,
 ) -> Option<EvalResult<Thunk>> {
-    let name: &str = name.as_symbol().or_else(|| name.as_builtin())?.as_ref();
+    let name: &str = name.as_func_name()?.as_ref();
 
     if let Some(thunk_result) = eval_thunk_builtin(name, args, env) {
         return Some(thunk_result);

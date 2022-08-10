@@ -63,7 +63,7 @@ impl fmt::Display for Expr {
             Expr::Map(map) => fmt::Display::fmt(&Surrounded(Join(map, " "), ['{', '}']), f),
             Expr::Symbol(s) => write!(f, "{s}"),
             Expr::Function(_) => f.write_str("#<function>"),
-            Expr::BuiltinFunction(fname) => write!(f, "#<builtin fn {}>", fname),
+            Expr::BuiltinFunction(fname) => write!(f, "{fname}"),
             Expr::Atom(a) => {
                 f.write_str("(atom ")?;
                 fmt::Display::fmt(&*a.borrow(), f)?;

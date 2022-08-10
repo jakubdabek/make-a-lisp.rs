@@ -41,6 +41,10 @@ impl Expr {
         }
     }
 
+    pub fn as_func_name(&self) -> Option<&str> {
+        self.as_symbol().or_else(|| self.as_builtin())
+    }
+
     pub fn as_string(&self) -> Option<&str> {
         match self {
             Expr::String(s) => Some(s),

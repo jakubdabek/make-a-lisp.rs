@@ -6,9 +6,22 @@ pub(super) fn eval_list(args: &[Expr], env: &Env) -> EvalResult<Expr> {
     eval_args(args, env).map(Expr::List)
 }
 
+pub(super) fn eval_vec(args: &[Expr], env: &Env) -> EvalResult<Expr> {
+    let arg = eval_1(args, env)?;
+    let list = arg
+        .into_list_like()
+        .map_err(|arg| EvalError::InvalidArgumentTypes(vec![arg.to_string()]))?;
+    Ok(Expr::Vector(list))
+}
+
 pub(super) fn eval_is_list(args: &[Expr], env: &Env) -> EvalResult<Expr> {
     let arg = eval_1(args, env)?;
     Ok(Expr::Bool(matches!(arg, Expr::List(_))))
+}
+
+pub(super) fn eval_is_vector(args: &[Expr], env: &Env) -> EvalResult<Expr> {
+    let arg = eval_1(args, env)?;
+    Ok(Expr::Bool(matches!(arg, Expr::Vector(_))))
 }
 
 pub(super) fn eval_is_empty(args: &[Expr], env: &Env) -> EvalResult<Expr> {
