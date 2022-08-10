@@ -58,7 +58,6 @@ pub const BUILTINS: &[(&str, BuiltinFn)] = &[
     ("eval", eval_eval),
     ("quote", eval_quote),
     // ("unquote", eval_unquote),
-    ("quasiquote", eval_quasiquote),
     ("quasiquoteexpand", eval_quasiquote_expand),
     // ("splice-unquote", eval_splice_unquote),
     // atoms
@@ -78,8 +77,12 @@ pub const BUILTINS: &[(&str, BuiltinFn)] = &[
     ("<=", number_op!(eval_cmp(<=))),
 ];
 
-pub(super) const THUNK_BUILTINS: &[(&str, BuiltinThunkFn)] =
-    &[("let*", eval_let), ("do", eval_do), ("if", eval_if)];
+pub(super) const THUNK_BUILTINS: &[(&str, BuiltinThunkFn)] = &[
+    ("let*", eval_let),
+    ("do", eval_do),
+    ("if", eval_if),
+    ("quasiquote", eval_quasiquote),
+];
 
 pub(super) fn eval_list_builtin(
     name: &Expr,

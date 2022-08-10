@@ -1,12 +1,14 @@
+use crate::eval::Thunk;
+
 use super::prelude::*;
 
 pub(super) fn eval_quote(args: &[Expr], _env: &Env) -> EvalResult<Expr> {
     args_n(args).map(|[arg]| arg.clone())
 }
 
-pub(super) fn eval_quasiquote(args: &[Expr], env: &Env) -> EvalResult<Expr> {
+pub(super) fn eval_quasiquote(args: &[Expr], env: &Env) -> EvalResult<Thunk> {
     let expr = eval_quasiquote_expand(args, env)?;
-    eval::eval(&expr, env)
+    Ok(Thunk::Unevaluated(expr, env.clone()))
 }
 
 pub(super) fn eval_quasiquote_expand(args: &[Expr], env: &Env) -> EvalResult<Expr> {
