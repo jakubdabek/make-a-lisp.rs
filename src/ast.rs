@@ -55,6 +55,13 @@ impl Expr {
         }
     }
 
+    pub fn into_list_like(self) -> Result<Vec<Expr>, Self> {
+        match self {
+            Expr::List(l) | Expr::Vector(l) => Ok(l),
+            _ => Err(self),
+        }
+    }
+
     pub fn lenient_eq(&self, other: &Self) -> bool {
         if self == other {
             return true;
