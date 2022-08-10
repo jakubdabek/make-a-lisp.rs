@@ -1,9 +1,14 @@
+use std::cell::RefCell;
+
 use crate::{ast::Expr, environment::Env};
 
-use super::Result;
+use super::{Error, Result};
 
 pub trait ReplFuncs {
     type Value;
+    fn is_interactive(&self) -> bool {
+        true
+    }
     fn read(&self) -> Result<String> {
         super::read()
     }
@@ -38,5 +43,37 @@ impl ReplFuncs for WithoutEval {
 
     fn print(&self, expr: Expr) -> Result<String> {
         super::print(expr)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct WithStaticInput<I, Funcs>(RefCell<I>, Funcs);
+
+impl<I, Funcs> WithStaticInput<I, Funcs> {
+    pub fn new(input: I, funcs: Funcs) -> Self {
+        Self(RefCell::new(input), funcs)
+    }
+}
+
+impl<I, Funcs: ReplFuncs> ReplFuncs for WithStaticInput<I, Funcs>
+where
+    I: Iterator<Item = String>,
+{
+    type Value = Funcs::Value;
+
+    fn is_interactive(&self) -> bool {
+        false
+    }
+
+    fn read(&self) -> Result<String> {
+        self.0.borrow_mut().next().ok_or(Error::Eof)
+    }
+
+    fn execute(&self, s: &str, env: &Env) -> Result<Self::Value> {
+        self.1.execute(s, env)
+    }
+
+    fn print(&self, expr: Self::Value) -> Result<String> {
+        self.1.print(expr)
     }
 }

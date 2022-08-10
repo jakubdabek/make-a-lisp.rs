@@ -7,17 +7,36 @@ use crate::{
     parser::{self, ParseError},
 };
 
-use self::repl_funcs::ReplFuncs;
+use self::repl_funcs::{ReplFuncs, WithStaticInput};
 
 pub mod repl_funcs;
 
 pub fn main(funcs: impl ReplFuncs) {
+    let mut args = std::env::args().skip(1);
+    match args.next() {
+        Some(program) => repl(WithStaticInput::new(
+            std::fs::read_to_string(program)
+                .unwrap()
+                .lines()
+                .map(<_>::to_owned),
+            funcs,
+        )),
+        None => repl(funcs),
+    }
+}
+
+pub fn repl(funcs: impl ReplFuncs) {
     let env = define_builtins(&funcs);
 
     loop {
         match rep(&funcs, &env) {
             Ok(_) => {}
             Err(Error::Eof) => break,
+            Err(Error::Parse(ParseError::Empty)) => {
+                if funcs.is_interactive() {
+                    println!();
+                }
+            }
             Err(Error::Parse(e)) => {
                 println!("Error: {e}");
             }
@@ -44,6 +63,11 @@ pub fn define_builtins(funcs: &impl ReplFuncs) -> Env {
             &env,
         )
         .unwrap();
+
+    env.set_special(
+        "*ARGV*",
+        Expr::List(std::env::args().skip(2).map(Expr::String).collect()),
+    );
 
     env
 }
@@ -93,6 +117,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     #[error("end of input")]
     Eof,
+    #[error("empty string")]
+    Empty,
     #[error("reading input failed: {0}")]
     IO(#[from] io::Error),
     #[error("parsing failed: {0}")]
