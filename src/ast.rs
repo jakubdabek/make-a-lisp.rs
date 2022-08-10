@@ -72,6 +72,7 @@ impl Expr {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Function {
     pub bindings: Vec<String>,
+    pub varargs: Option<String>,
     pub expr: Rc<Expr>,
     pub closure: Env,
 }

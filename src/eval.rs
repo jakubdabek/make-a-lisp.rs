@@ -20,6 +20,8 @@ pub enum EvalError {
     InvalidFunction(String),
     #[error("invalid function arguments: {0:?}")]
     InvalidArgumentTypes(Vec<String>),
+    #[error("invalid vararg arguments")]
+    InvalidVarargs,
     #[error("'{0}' not found")]
     UnknownSymbol(Rc<str>),
     #[error("invalid variable name: {0}")]
@@ -96,16 +98,24 @@ fn eval_list(exprs: &[Expr], env: &Env) -> EvalResult<Thunk> {
         _ => return Err(EvalError::InvalidFunctionName(name.to_string())),
     };
 
-    if args.len() != f.bindings.len() {
-        return Err(EvalError::InvalidArgumentCount);
+    use std::cmp::Ordering::*;
+    match args.len().cmp(&f.bindings.len()) {
+        Equal if f.varargs.is_none() => {}
+        Greater | Equal if f.varargs.is_some() => {}
+        _ => return Err(EvalError::InvalidArgumentCount),
     }
 
-    let args = args
+    let mut args = args
         .iter()
         .map(|e| eval(e, env))
         .collect::<EvalResult<Vec<_>>>()?;
 
     let args_env = Environment::with_parent(f.closure.clone());
+
+    if let Some(varargs_name) = &f.varargs {
+        let varargs = args.split_off(f.bindings.len());
+        args_env.set(varargs_name, Expr::List(varargs));
+    }
 
     for (binding, arg) in f.bindings.iter().zip(args) {
         args_env.set(binding, arg);

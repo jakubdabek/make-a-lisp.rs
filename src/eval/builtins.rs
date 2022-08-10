@@ -247,7 +247,7 @@ fn eval_fn(args: &[Expr], env: &Env) -> EvalResult<Expr> {
         _ => return Err(EvalError::InvalidArgumentTypes(vec![bindings.to_string()])),
     };
 
-    let bindings = bindings
+    let mut bindings = bindings
         .iter()
         .map(|b| {
             b.as_symbol()
@@ -255,11 +255,26 @@ fn eval_fn(args: &[Expr], env: &Env) -> EvalResult<Expr> {
         })
         .collect::<EvalResult<Vec<_>>>()?;
 
+    let varargs = bindings.iter().filter(|&&b| b == "&").count();
+    let varargs = match varargs {
+        0 => None,
+        1 => {
+            let vararg_name = bindings.pop().unwrap();
+            let _sigil = bindings
+                .pop()
+                .filter(|&b| b == "&")
+                .ok_or(EvalError::InvalidVarargs)?;
+            Some(vararg_name.to_owned())
+        }
+        _ => return Err(EvalError::InvalidVarargs),
+    };
+
     let bindings = bindings.into_iter().map(<str>::to_owned).collect();
     let expr = Rc::new(expr.clone());
 
     Ok(Expr::Function(Function {
         bindings,
+        varargs,
         expr,
         closure: env.clone(),
     }))
