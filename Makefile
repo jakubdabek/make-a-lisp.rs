@@ -11,6 +11,7 @@ REPEATING_STEPS := \
 	step5_tco \
 	step6_file \
 	step7_quote \
+	step8_macros \
 	# end of REPEATING_STEPS
 
 ALL_STEPS := $(STEPS) $(REPEATING_STEPS)
