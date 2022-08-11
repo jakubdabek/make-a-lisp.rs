@@ -93,6 +93,7 @@ pub struct Function {
     pub varargs: Option<String>,
     pub expr: Rc<Expr>,
     pub closure: Env,
+    pub is_macro: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

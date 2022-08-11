@@ -38,6 +38,7 @@ macro_rules! number_op {
 
 pub const BUILTINS: &[(&str, BuiltinFn)] = &[
     ("def!", eval_def),
+    ("defmacro!", eval_def_macro),
     ("fn*", eval_fn),
     ("=", eval_eq),
     // lists
@@ -65,6 +66,7 @@ pub const BUILTINS: &[(&str, BuiltinFn)] = &[
     // ("unquote", eval_unquote),
     ("quasiquoteexpand", eval_quasiquote_expand),
     // ("splice-unquote", eval_splice_unquote),
+    ("macroexpand", eval_macro_expand),
     // atoms
     ("atom", eval_atom),
     ("atom?", eval_is_atom),

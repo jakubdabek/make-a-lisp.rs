@@ -107,10 +107,13 @@ fn eval_list(exprs: &[Expr], env: &Env) -> EvalResult<Thunk> {
         _ => return Err(EvalError::InvalidArgumentCount),
     }
 
-    let mut args = args
-        .iter()
-        .map(|e| eval(e, env))
-        .collect::<EvalResult<Vec<_>>>()?;
+    let mut args = if f.is_macro {
+        args.to_vec()
+    } else {
+        args.iter()
+            .map(|e| eval(e, env))
+            .collect::<EvalResult<Vec<_>>>()?
+    };
 
     let args_env = Environment::with_parent(f.closure.clone());
 

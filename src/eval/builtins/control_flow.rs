@@ -52,6 +52,7 @@ pub(super) fn eval_fn(args: &[Expr], env: &Env) -> EvalResult<Expr> {
         varargs,
         expr,
         closure: env.clone(),
+        is_macro: false,
     }))
 }
 
@@ -73,16 +74,36 @@ pub(super) fn eval_if(args: &[Expr], env: &Env) -> EvalResult<Thunk> {
     }
 }
 
-pub(super) fn eval_def(args: &[Expr], env: &Env) -> EvalResult<Expr> {
+fn eval_def_inner(
+    args: &[Expr],
+    env: &Env,
+    modify: impl FnOnce(Expr) -> EvalResult<Expr>,
+) -> EvalResult<Expr> {
     let [key, val] = args_n(args)?;
     let key = key
         .as_symbol()
         .ok_or_else(|| EvalError::InvalidVariableName(key.to_string()))?;
 
     let val = super::eval(val, env)?;
+    let val = modify(val)?;
     env.set(key, val.clone());
 
     Ok(val)
+}
+
+pub(super) fn eval_def(args: &[Expr], env: &Env) -> EvalResult<Expr> {
+    eval_def_inner(args, env, Ok)
+}
+
+pub(super) fn eval_def_macro(args: &[Expr], env: &Env) -> EvalResult<Expr> {
+    eval_def_inner(args, env, |e| {
+        into_type!(e => Expr::Function).map(|f| {
+            Expr::Function(Function {
+                is_macro: true,
+                ..f
+            })
+        })
+    })
 }
 
 pub(super) fn eval_let(args: &[Expr], env: &Env) -> EvalResult<Thunk> {

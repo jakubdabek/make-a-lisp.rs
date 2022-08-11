@@ -69,7 +69,7 @@ pub(super) fn eval_rest(args: &[Expr], env: &Env) -> EvalResult<Expr> {
     let list = eval_1(args, env)?;
 
     if let Expr::Nil = list {
-        return Ok(Expr::Nil);
+        return Ok(Expr::List(vec![]));
     }
 
     let mut list = into_list_like(list)?;

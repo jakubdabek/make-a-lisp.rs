@@ -61,6 +61,13 @@ pub fn define_builtins(funcs: &impl ReplFuncs) -> Env {
         )
         .unwrap();
 
+    funcs
+        .execute(
+            r##"(defmacro! cond (fn* (& xs) (if (> (count xs) 0) (list 'if (first xs) (if (> (count xs) 1) (nth xs 1) (throw "odd number of forms to cond")) (cons 'cond (rest (rest xs)))))))"##,
+            &env,
+        )
+        .unwrap();
+
     env.set_special(
         "*ARGV*",
         Expr::List(std::env::args().skip(2).map(Expr::String).collect()),

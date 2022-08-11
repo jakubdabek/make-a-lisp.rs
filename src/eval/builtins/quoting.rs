@@ -57,3 +57,8 @@ fn eval_quasiquote_list_like(list: &[Expr], env: &Env) -> EvalResult<Expr> {
         Ok(res)
     })
 }
+
+pub(super) fn eval_macro_expand(args: &[Expr], env: &Env) -> EvalResult<Expr> {
+    let [expr] = args_n(args)?;
+    eval::eval(expr, env)
+}
