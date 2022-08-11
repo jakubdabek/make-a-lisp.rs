@@ -28,6 +28,8 @@ pub enum EvalError {
     InvalidVariableName(String),
     #[error("invalid variables for let*")]
     InvalidLetVariables,
+    #[error("exception occurred: {0}")]
+    Exception(String),
     #[error("parsing error: {0}")]
     ParseError(#[from] ParseError),
     #[error("IO error: {0}")]

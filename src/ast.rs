@@ -27,6 +27,13 @@ impl Expr {
         Self::Atom(Rc::new(RefCell::new(e)))
     }
 
+    pub fn as_int(&self) -> Option<i64> {
+        match self {
+            Expr::Int(n) => Some(*n),
+            _ => None,
+        }
+    }
+
     pub fn as_symbol(&self) -> Option<&str> {
         match self {
             Expr::Symbol(s) => Some(s),

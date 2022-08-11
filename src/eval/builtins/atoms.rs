@@ -12,18 +12,13 @@ pub(super) fn eval_is_atom(args: &[Expr], env: &Env) -> EvalResult<Expr> {
 
 pub(super) fn eval_deref(args: &[Expr], env: &Env) -> EvalResult<Expr> {
     let expr = eval_1(args, env)?;
-    match expr {
-        Expr::Atom(a) => Ok(a.borrow().clone()),
-        _ => Err(EvalError::InvalidArgumentTypes(vec![expr.to_string()])),
-    }
+    let expr = as_type!(&expr => Expr::Atom)?.borrow().clone();
+    Ok(expr)
 }
 
 pub(super) fn eval_reset(args: &[Expr], env: &Env) -> EvalResult<Expr> {
     let (atom, expr) = eval_2(args, env)?;
-    let atom = match atom {
-        Expr::Atom(a) => a,
-        _ => return Err(EvalError::InvalidArgumentTypes(vec![atom.to_string()])),
-    };
+    let atom = as_type!(&atom => Expr::Atom)?;
 
     *atom.borrow_mut() = expr.clone();
     Ok(expr)
@@ -35,10 +30,7 @@ pub(super) fn eval_swap(args: &[Expr], env: &Env) -> EvalResult<Expr> {
         [atom, func, ..] => {
             std::mem::swap(atom, func);
             let (atom, _func) = (func, atom);
-            let atom_ref = match atom {
-                Expr::Atom(a) => a.clone(),
-                _ => return Err(EvalError::InvalidArgumentTypes(vec![atom.to_string()])),
-            };
+            let atom_ref = as_type!(atom => Expr::Atom)?.clone();
             *atom = atom_ref.borrow().clone();
             atom_ref
         }

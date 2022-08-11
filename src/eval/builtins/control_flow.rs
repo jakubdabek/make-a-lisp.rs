@@ -23,17 +23,11 @@ pub(super) fn eval_do(args: &[Expr], env: &Env) -> EvalResult<Thunk> {
 
 pub(super) fn eval_fn(args: &[Expr], env: &Env) -> EvalResult<Expr> {
     let [bindings, expr] = args_n(args)?;
-    let bindings = match bindings {
-        Expr::List(b) | Expr::Vector(b) => b,
-        _ => return Err(EvalError::InvalidArgumentTypes(vec![bindings.to_string()])),
-    };
+    let bindings = as_type(bindings, Expr::as_list_like)?;
 
     let mut bindings = bindings
         .iter()
-        .map(|b| {
-            b.as_symbol()
-                .ok_or_else(|| EvalError::InvalidArgumentTypes(vec![b.to_string()]))
-        })
+        .map(|b| as_type(b, Expr::as_symbol))
         .collect::<EvalResult<Vec<_>>>()?;
 
     let varargs = bindings.iter().filter(|&&b| b == "&").count();

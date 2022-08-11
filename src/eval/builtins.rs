@@ -12,7 +12,9 @@ mod quoting;
 mod strings;
 
 mod prelude {
-    pub(super) use super::{args_n, eval_1, eval_2, eval_args};
+    pub(super) use super::{
+        args_n, as_type, eval_1, eval_2, eval_args, into_list_like, into_type, macros::*,
+    };
     pub(super) use crate::{
         ast::Expr,
         environment::{Env, Environment},
@@ -44,6 +46,9 @@ pub const BUILTINS: &[(&str, BuiltinFn)] = &[
     ("empty?", eval_is_empty),
     ("count", eval_count),
     ("cons", eval_cons),
+    ("first", eval_first),
+    ("rest", eval_rest),
+    ("nth", eval_nth),
     ("concat", eval_concat),
     ("vec", eval_vec),
     ("vector?", eval_is_vector),
@@ -133,6 +138,54 @@ fn eval_2(args: &[Expr], env: &Env) -> EvalResult<(Expr, Expr)> {
     let [a, b] = [a, b].map(|e| super::eval(e, env));
 
     Ok((a?, b?))
+}
+
+fn into_list_like(arg: Expr) -> EvalResult<Vec<Expr>> {
+    into_type(arg, Expr::into_list_like)
+}
+
+fn as_type<'a, T: 'a>(arg: &'a Expr, op: impl FnOnce(&'a Expr) -> Option<T>) -> EvalResult<T> {
+    op(arg).ok_or_else(|| EvalError::InvalidArgumentTypes(vec![arg.to_string()]))
+}
+
+fn into_type<T>(arg: Expr, op: impl FnOnce(Expr) -> Result<T, Expr>) -> EvalResult<T> {
+    op(arg).map_err(|arg| EvalError::InvalidArgumentTypes(vec![arg.to_string()]))
+}
+
+mod macros {
+    macro_rules! as_type_fn {
+        ( $variant:path ) => {
+            |e| match e {
+                $variant(e) => Some(e),
+                _ => None,
+            }
+        };
+    }
+    pub(crate) use as_type_fn;
+
+    macro_rules! as_type {
+        ( $e:expr => $variant:path ) => {
+            as_type($e, super::macros::as_type_fn!($variant))
+        };
+    }
+    pub(crate) use as_type;
+
+    macro_rules! into_type_fn {
+        ( $variant:path ) => {
+            |e| match e {
+                $variant(e) => Ok(e),
+                _ => Err(e),
+            }
+        };
+    }
+    pub(crate) use into_type_fn;
+
+    macro_rules! into_type {
+        ( $e:expr => $variant:path ) => {
+            into_type($e, super::macros::into_type_fn!($variant))
+        };
+    }
+    pub(crate) use into_type;
 }
 
 fn eval_number_args(args: &[Expr], env: &Env) -> EvalResult<(i64, i64)> {

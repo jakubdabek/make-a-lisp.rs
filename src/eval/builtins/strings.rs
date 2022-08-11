@@ -28,18 +28,14 @@ pub(super) fn eval_println(args: &[Expr], env: &Env) -> EvalResult<Expr> {
 
 pub(super) fn eval_read_string(args: &[Expr], env: &Env) -> EvalResult<Expr> {
     let arg = eval_1(args, env)?;
-    let arg = arg
-        .as_string()
-        .ok_or_else(|| EvalError::InvalidArgumentTypes(vec![arg.to_string()]))?;
+    let arg = as_type(&arg, Expr::as_string)?;
 
     Ok(parser::parse(arg)?)
 }
 
 pub(super) fn eval_slurp(args: &[Expr], env: &Env) -> EvalResult<Expr> {
     let arg = eval_1(args, env)?;
-    let arg = arg
-        .as_string()
-        .ok_or_else(|| EvalError::InvalidArgumentTypes(vec![arg.to_string()]))?;
+    let arg = as_type(&arg, Expr::as_string)?;
 
     let content = std::fs::read_to_string(arg)?;
     Ok(Expr::String(content))
