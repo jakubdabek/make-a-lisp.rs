@@ -15,7 +15,7 @@ impl ReplFuncs for DebugNoEval {
     }
 
     fn print(&self, expr: Expr) -> Result<String> {
-        Ok(format!("{:?}", expr))
+        Ok(format!("{:?}\n", expr))
     }
 }
 

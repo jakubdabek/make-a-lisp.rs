@@ -1,10 +1,10 @@
-use std::{borrow::Cow, cell::RefCell, rc::Rc};
+use std::{borrow::Cow, cell::RefCell, fmt, rc::Rc};
 
 use fnv::FnvHashMap;
 
 use crate::{ast::Expr, eval::builtins::BUILTINS};
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Default, PartialEq)]
 pub struct Environment {
     variables: RefCell<FnvHashMap<Cow<'static, str>, Expr>>,
     parent: Option<Env>,
@@ -61,5 +61,34 @@ impl Environment {
             ..Default::default()
         };
         Rc::new(env)
+    }
+}
+
+struct SimpleExprMapDebug<'a>(&'a FnvHashMap<Cow<'static, str>, Expr>);
+
+impl fmt::Debug for SimpleExprMapDebug<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let env = self.0;
+        let mut map = f.debug_map();
+        for (k, e) in env {
+            match e {
+                Expr::Function(_) => map.entry(k, &"#<function>"),
+                Expr::List(_) => map.entry(k, &"#<list>"),
+                Expr::Vector(_) => map.entry(k, &"#<vector>"),
+                Expr::Map(_) => map.entry(k, &"#<map>"),
+                Expr::Atom(_) => map.entry(k, &"#<atom>"),
+                _ => map.entry(k, e),
+            };
+        }
+        map.finish()
+    }
+}
+
+impl fmt::Debug for Environment {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Environment")
+            .field("variables", &SimpleExprMapDebug(&*self.variables.borrow()))
+            .field("parent", &self.parent)
+            .finish()
     }
 }

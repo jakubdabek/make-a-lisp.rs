@@ -1,5 +1,5 @@
 DEBUG_STEPS := step_debug_eval step_debug_no_eval
-STEPS := $(DEBUG_STEPS) \
+STEPS := \
 	step0_repl \
 	step1_read_print \
 	step2_eval \
@@ -14,7 +14,7 @@ REPEATING_STEPS := \
 	step8_macros \
 	# end of REPEATING_STEPS
 
-ALL_STEPS := $(STEPS) $(REPEATING_STEPS)
+ALL_STEPS := $(DEBUG_STEPS) $(STEPS) $(REPEATING_STEPS)
 
 CARGO := $(or $(CARGO),cargo)
 
@@ -22,6 +22,10 @@ all: buildsteps $(ALL_STEPS)
 
 buildsteps:
 	$(CARGO) build --release --bins
+
+$(DEBUG_STEPS): .FORCE
+	$(CARGO) build --bin $@
+	cp target/debug/$@$(EXEC_EXT) ./$@
 
 $(STEPS): .FORCE
 	$(CARGO) build --release --bin $@
