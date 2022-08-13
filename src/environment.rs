@@ -77,6 +77,7 @@ impl fmt::Debug for SimpleExprMapDebug<'_> {
                 Expr::Vector(_) => map.entry(k, &"#<vector>"),
                 Expr::Map(_) => map.entry(k, &"#<map>"),
                 Expr::Atom(_) => map.entry(k, &"#<atom>"),
+                Expr::BuiltinFunction(_) => continue,
                 _ => map.entry(k, e),
             };
         }
@@ -86,9 +87,13 @@ impl fmt::Debug for SimpleExprMapDebug<'_> {
 
 impl fmt::Debug for Environment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Environment")
-            .field("variables", &SimpleExprMapDebug(&*self.variables.borrow()))
-            .field("parent", &self.parent)
-            .finish()
+        let alternate = f.alternate();
+        let mut debug = f.debug_struct("Environment");
+        if alternate {
+            debug.field("variables", &SimpleExprMapDebug(&*self.variables.borrow()))
+        } else {
+            debug.field("variables", &"#{env}")
+        };
+        debug.field("parent", &self.parent).finish()
     }
 }
