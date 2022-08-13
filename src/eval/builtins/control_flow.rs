@@ -14,7 +14,7 @@ pub(super) fn eval_do(args: &[Expr], env: &Env) -> EvalResult<Thunk> {
             let _ = args
                 .iter()
                 .try_fold(Expr::Nil, |_, arg| super::eval(arg, env))?;
-            Unevaluated(last.clone(), env.clone())
+            Unevaluated(Rc::new(last.clone()), env.clone())
         }
     };
 
@@ -69,8 +69,8 @@ pub(super) fn eval_if(args: &[Expr], env: &Env) -> EvalResult<Thunk> {
     let cond = eval::eval(cond, env)?;
 
     match cond {
-        Expr::Nil | Expr::Bool(false) => Ok(Unevaluated(failure.clone(), env.clone())),
-        _ => Ok(Unevaluated(success.clone(), env.clone())),
+        Expr::Nil | Expr::Bool(false) => Ok(Unevaluated(Rc::new(failure.clone()), env.clone())),
+        _ => Ok(Unevaluated(Rc::new(success.clone()), env.clone())),
     }
 }
 
@@ -127,5 +127,5 @@ pub(super) fn eval_let(args: &[Expr], env: &Env) -> EvalResult<Thunk> {
         let_env.set(name, val);
     }
 
-    Ok(Unevaluated(expr.clone(), let_env))
+    Ok(Unevaluated(Rc::new(expr.clone()), let_env))
 }

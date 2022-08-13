@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::eval::Thunk;
 
 use super::prelude::*;
@@ -8,7 +10,7 @@ pub(super) fn eval_quote(args: &[Expr], _env: &Env) -> EvalResult<Expr> {
 
 pub(super) fn eval_quasiquote(args: &[Expr], env: &Env) -> EvalResult<Thunk> {
     let expr = eval_quasiquote_expand(args, env)?;
-    Ok(Thunk::Unevaluated(expr, env.clone()))
+    Ok(Thunk::Unevaluated(Rc::new(expr), env.clone()))
 }
 
 pub(super) fn eval_quasiquote_expand(args: &[Expr], env: &Env) -> EvalResult<Expr> {
@@ -60,5 +62,5 @@ fn eval_quasiquote_list_like(list: &[Expr], env: &Env) -> EvalResult<Expr> {
 
 pub(super) fn eval_macro_expand(args: &[Expr], env: &Env) -> EvalResult<Expr> {
     let [expr] = args_n(args)?;
-    eval::eval(expr, env)
+    eval::eval_maybe_macro(expr, env, false)
 }

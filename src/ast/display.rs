@@ -70,6 +70,7 @@ impl fmt::Display for Expr {
                 f.write_str(")")?;
                 Ok(())
             }
+            Expr::MacroExpand(_) => unreachable!(),
         }
     }
 }

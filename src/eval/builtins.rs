@@ -62,6 +62,7 @@ pub const BUILTINS: &[(&str, BuiltinFn)] = &[
     ("read-string", eval_read_string),
     // quoting
     ("eval", eval_eval),
+    ("eval*", eval_eval_local),
     ("quote", eval_quote),
     // ("unquote", eval_unquote),
     ("quasiquoteexpand", eval_quasiquote_expand),
@@ -205,6 +206,11 @@ fn eval_number_args(args: &[Expr], env: &Env) -> EvalResult<(i64, i64)> {
 fn eval_eval(args: &[Expr], env: &Env) -> EvalResult<Expr> {
     let expr = eval_1(args, env)?;
     let env = env.top_level_env();
+    super::eval(&expr, env)
+}
+
+fn eval_eval_local(args: &[Expr], env: &Env) -> EvalResult<Expr> {
+    let expr = eval_1(args, env)?;
     super::eval(&expr, env)
 }
 

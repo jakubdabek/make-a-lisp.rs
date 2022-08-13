@@ -18,6 +18,7 @@ pub enum Expr {
     Function(Function),
     BuiltinFunction(&'static str),
     Atom(Rc<RefCell<Expr>>),
+    MacroExpand(Rc<Expr>),
 }
 
 impl Expr {

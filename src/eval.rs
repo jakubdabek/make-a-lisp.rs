@@ -1,7 +1,7 @@
 use std::{io, rc::Rc};
 
 use crate::{
-    ast::Expr,
+    ast::{Expr, Function},
     environment::{Env, Environment},
     parser::ParseError,
 };
@@ -41,17 +41,48 @@ pub type EvalResult<T> = std::result::Result<T, EvalError>;
 #[derive(Debug)]
 enum Thunk {
     Evaluated(Expr),
-    Unevaluated(Expr, Env),
+    Unevaluated(Rc<Expr>, Env),
 }
 
 use Thunk::{Evaluated, Unevaluated};
 
 pub fn eval(expr: &Expr, env: &Env) -> EvalResult<Expr> {
+    eval_maybe_macro(expr, env, true)
+}
+
+fn is_macro(expr: &Expr, env: &Env) -> bool {
+    let l = match expr {
+        Expr::List(l) => l,
+        _ => return false,
+    };
+
+    let name = match l.as_slice() {
+        [name, ..] => name,
+        _ => return false,
+    };
+
+    let name = match name.as_func_name() {
+        Some(name) => name,
+        None => return false,
+    };
+
+    let f = match env.get(name) {
+        Some(f) => f,
+        None => return false,
+    };
+
+    matches!(f, Expr::Function(Function { is_macro: true, .. }))
+}
+
+fn eval_maybe_macro(expr: &Expr, env: &Env, expand_macros: bool) -> EvalResult<Expr> {
     let mut expr_owner;
     let mut expr = &*expr;
     let mut env_owner;
     let mut env = &*env;
+    let mut last_macro = false;
     loop {
+        // eprintln!("last_macro = {last_macro}, expr = {}", expr);
+        // eprintln!("{:#?}", env);
         let evaluated = match expr {
             Expr::Symbol(sym) => match env.get(&**sym) {
                 Some(f) => Ok(f),
@@ -62,6 +93,19 @@ pub fn eval(expr: &Expr, env: &Env) -> EvalResult<Expr> {
                 match thunk {
                     Evaluated(e) => Ok(e),
                     Unevaluated(e, new_env) => {
+                        let (e, new_env) = match &*e {
+                            Expr::MacroExpand(e) if expand_macros => {
+                                // top-level macro, needs to expand and then evaluate in the current env
+                                let e = eval_maybe_macro(e, &new_env, false)?;
+                                last_macro = true;
+                                (Rc::new(e), env.clone())
+                            }
+                            Expr::MacroExpand(e) => {
+                                last_macro = true;
+                                (Rc::clone(e), new_env)
+                            }
+                            _ => (e, new_env),
+                        };
                         expr_owner = e;
                         expr = &expr_owner;
                         env_owner = new_env;
@@ -79,7 +123,15 @@ pub fn eval(expr: &Expr, env: &Env) -> EvalResult<Expr> {
             expr => Ok(expr.clone()),
         };
 
-        break evaluated;
+        let evaluated = evaluated?;
+        if last_macro && (expand_macros || is_macro(&evaluated, env)) {
+            expr_owner = Rc::new(evaluated);
+            expr = &expr_owner;
+            last_macro = false;
+            continue;
+        }
+
+        break Ok(evaluated);
     }
 }
 
@@ -126,5 +178,12 @@ fn eval_list(exprs: &[Expr], env: &Env) -> EvalResult<Thunk> {
         args_env.set(binding, arg);
     }
 
-    Ok(Unevaluated(Expr::clone(&f.expr), args_env))
+    if f.is_macro {
+        Ok(Unevaluated(
+            Rc::new(Expr::MacroExpand(Rc::clone(&f.expr))),
+            args_env,
+        ))
+    } else {
+        Ok(Unevaluated(Rc::clone(&f.expr), args_env))
+    }
 }
