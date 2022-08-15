@@ -5,7 +5,7 @@ use crate::{
     eval::Thunk::{self, Evaluated, Unevaluated},
 };
 
-use super::prelude::*;
+use super::{prelude::*, quoting::make_quote};
 
 pub(super) fn eval_do(args: &[Expr], env: &Env) -> EvalResult<Thunk> {
     let thunk = match args {
@@ -128,4 +128,44 @@ pub(super) fn eval_let(args: &[Expr], env: &Env) -> EvalResult<Thunk> {
     }
 
     Ok(Unevaluated(Rc::new(expr.clone()), let_env))
+}
+
+pub(super) fn eval_try(args: &[Expr], env: &Env) -> EvalResult<Expr> {
+    let (expr, catch) = match args_n(args) {
+        Ok([expr, catch]) => (expr, catch),
+        Err(_) => {
+            let [expr] = args_n(args)?;
+            return super::eval(expr, env);
+        }
+    };
+    let catch = as_type!(catch => Expr::List)?;
+    let invalid = || EvalError::InvalidCatchBlock;
+    let [catch, catch_var, catch_expr] = args_n(catch).map_err(|_| invalid())?;
+    let catch = as_type(catch, Expr::as_symbol).map_err(|_| invalid())?;
+    let catch_var = as_type(catch_var, Expr::as_symbol).map_err(|_| invalid())?;
+    if catch != "catch*" {
+        return Err(invalid());
+    }
+
+    let exc = match super::eval(expr, env) {
+        Err(EvalError::Exception(exc)) => exc,
+        res => return res,
+    };
+
+    let catch_func = Function {
+        bindings: vec![catch_var.to_owned()],
+        varargs: None,
+        expr: Rc::new(catch_expr.clone()),
+        closure: env.clone(),
+        is_macro: false,
+    };
+    super::eval(
+        &Expr::List(vec![Expr::Function(catch_func), make_quote(exc)]),
+        env,
+    )
+}
+
+pub(super) fn eval_throw(args: &[Expr], env: &Env) -> EvalResult<Expr> {
+    let expr = eval_1(args, env)?;
+    Err(EvalError::Exception(expr))
 }

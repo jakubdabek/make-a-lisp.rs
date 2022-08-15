@@ -48,6 +48,8 @@ pub const BUILTINS: &[(&str, BuiltinFn)] = &[
     ("defmacro!", eval_def_macro),
     ("fn*", eval_fn),
     ("=", eval_eq),
+    ("try*", eval_try),
+    ("throw", eval_throw),
     // functional
     ("map", eval_map),
     ("apply", eval_apply),

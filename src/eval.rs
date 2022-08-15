@@ -29,12 +29,20 @@ pub enum EvalError {
     InvalidVariableName(String),
     #[error("invalid variables for let*")]
     InvalidLetVariables,
+    #[error("invalid catch block")]
+    InvalidCatchBlock,
     #[error("exception occurred: {0}")]
-    Exception(String),
+    Exception(Expr),
     #[error("parsing error: {0}")]
     ParseError(#[from] ParseError),
     #[error("IO error: {0}")]
     IOError(#[from] io::Error),
+}
+
+impl EvalError {
+    pub fn to_exception(self) -> Self {
+        Self::Exception(Expr::String(self.to_string()))
+    }
 }
 
 pub type EvalResult<T> = std::result::Result<T, EvalError>;
@@ -88,7 +96,7 @@ fn eval_maybe_macro(expr: &Expr, env: &Env, expand_macros: bool) -> EvalResult<E
         let evaluated = match expr {
             Expr::Symbol(sym) => match env.get(&**sym) {
                 Some(f) => Ok(f),
-                None => Err(EvalError::UnknownSymbol(sym.clone())),
+                None => Err(EvalError::UnknownSymbol(sym.clone()).to_exception()),
             },
             Expr::List(v) => {
                 let thunk = eval_list(v, env)?;

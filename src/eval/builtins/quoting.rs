@@ -4,6 +4,10 @@ use crate::eval::Thunk;
 
 use super::prelude::*;
 
+pub(super) fn make_quote(expr: Expr) -> Expr {
+    Expr::List(vec![Expr::BuiltinFunction("quote"), expr])
+}
+
 pub(super) fn eval_quote(args: &[Expr], _env: &Env) -> EvalResult<Expr> {
     args_n(args).map(|[arg]| arg.clone())
 }
@@ -19,10 +23,7 @@ pub(super) fn eval_quasiquote_expand(args: &[Expr], env: &Env) -> EvalResult<Exp
     match arg {
         Expr::List(l) => eval_quasiquote_list(l, env),
         Expr::Vector(v) => eval_quasiquote_vec(v, env),
-        Expr::Symbol(_) | Expr::Map(_) => Ok(Expr::List(vec![
-            Expr::BuiltinFunction("quote"),
-            arg.clone(),
-        ])),
+        Expr::Symbol(_) | Expr::Map(_) => Ok(make_quote(arg.clone())),
         _ => Ok(arg.clone()),
     }
 }

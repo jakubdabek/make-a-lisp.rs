@@ -99,5 +99,10 @@ pub(super) fn eval_nth(args: &[Expr], env: &Env) -> EvalResult<Expr> {
     idx.try_into()
         .ok()
         .and_then(|idx| list.into_iter().nth(idx))
-        .ok_or_else(|| EvalError::Exception(format!("index {idx} out of range for len {}", len)))
+        .ok_or_else(|| {
+            EvalError::Exception(Expr::String(format!(
+                "index {idx} out of range for len {}",
+                len
+            )))
+        })
 }

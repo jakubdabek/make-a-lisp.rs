@@ -1,4 +1,4 @@
-use super::prelude::*;
+use super::{prelude::*, quoting::make_quote};
 
 pub(super) fn eval_map(args: &[Expr], env: &Env) -> EvalResult<Expr> {
     let (f, list) = eval_2(args, env)?;
@@ -6,7 +6,7 @@ pub(super) fn eval_map(args: &[Expr], env: &Env) -> EvalResult<Expr> {
 
     let results = list
         .into_iter()
-        .map(|elem| super::eval(&Expr::List(vec![f.clone(), elem]), env))
+        .map(|elem| super::eval(&Expr::List(vec![f.clone(), make_quote(elem)]), env))
         .collect::<EvalResult<_>>()?;
     Ok(Expr::List(results))
 }
@@ -18,10 +18,7 @@ pub(super) fn eval_apply(args: &[Expr], env: &Env) -> EvalResult<Expr> {
     let list = into_type(list, Expr::into_list_like)?;
     let mut f_args = vec![f.clone()];
     f_args.extend(args.iter().cloned());
-    f_args.extend(
-        list.into_iter()
-            .map(|e| Expr::List(vec![Expr::BuiltinFunction("quote"), e])),
-    );
+    f_args.extend(list.into_iter().map(make_quote));
 
     super::eval(&Expr::List(f_args), env)
 }
