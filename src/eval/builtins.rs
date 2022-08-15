@@ -8,6 +8,8 @@ use super::{
 mod atoms;
 mod control_flow;
 mod lists;
+mod maps;
+mod primitives;
 mod quoting;
 mod strings;
 
@@ -22,7 +24,7 @@ mod prelude {
     };
 }
 
-use self::{atoms::*, control_flow::*, lists::*, quoting::*, strings::*};
+use self::{atoms::*, control_flow::*, lists::*, maps::*, primitives::*, quoting::*, strings::*};
 
 // const ARITHMETIC_BUILTINS: &[&str] = &["+", "-", "*", "/"];
 // const COMPARISON_BUILTINS: &[&str] = &["<", ">", ">=", "<="];
@@ -44,6 +46,7 @@ pub const BUILTINS: &[(&str, BuiltinFn)] = &[
     // lists
     ("list", eval_list),
     ("list?", eval_is_list),
+    ("sequential?", eval_is_sequential),
     ("empty?", eval_is_empty),
     ("count", eval_count),
     ("cons", eval_cons),
@@ -52,7 +55,10 @@ pub const BUILTINS: &[(&str, BuiltinFn)] = &[
     ("nth", eval_nth),
     ("concat", eval_concat),
     ("vec", eval_vec),
+    ("vector", eval_vector),
     ("vector?", eval_is_vector),
+    // maps
+    ("map?", eval_is_map),
     // strings
     ("pr-str", eval_pr_str),
     ("str", eval_str),
@@ -74,6 +80,14 @@ pub const BUILTINS: &[(&str, BuiltinFn)] = &[
     ("deref", eval_deref),
     ("reset!", eval_reset),
     ("swap!", eval_swap),
+    // primitives
+    ("false?", eval_is_false),
+    ("true?", eval_is_true),
+    ("nil?", eval_is_nil),
+    ("symbol?", eval_is_symbol),
+    ("symbol", eval_symbol),
+    ("keyword?", eval_is_keyword),
+    ("keyword", eval_keyword),
     // numbers
     ("+", number_op!(eval_arithmetic(+))),
     ("-", number_op!(eval_arithmetic(-))),

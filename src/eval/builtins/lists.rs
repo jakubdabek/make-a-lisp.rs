@@ -12,6 +12,10 @@ pub(super) fn eval_vec(args: &[Expr], env: &Env) -> EvalResult<Expr> {
     Ok(Expr::Vector(list))
 }
 
+pub(super) fn eval_vector(args: &[Expr], env: &Env) -> EvalResult<Expr> {
+    eval_args(args, env).map(Expr::Vector)
+}
+
 pub(super) fn eval_is_list(args: &[Expr], env: &Env) -> EvalResult<Expr> {
     let arg = eval_1(args, env)?;
     Ok(Expr::Bool(matches!(arg, Expr::List(_))))
@@ -20,6 +24,11 @@ pub(super) fn eval_is_list(args: &[Expr], env: &Env) -> EvalResult<Expr> {
 pub(super) fn eval_is_vector(args: &[Expr], env: &Env) -> EvalResult<Expr> {
     let arg = eval_1(args, env)?;
     Ok(Expr::Bool(matches!(arg, Expr::Vector(_))))
+}
+
+pub(super) fn eval_is_sequential(args: &[Expr], env: &Env) -> EvalResult<Expr> {
+    let arg = eval_1(args, env)?;
+    Ok(Expr::Bool(matches!(arg, Expr::List(_) | Expr::Vector(_))))
 }
 
 pub(super) fn eval_is_empty(args: &[Expr], env: &Env) -> EvalResult<Expr> {
