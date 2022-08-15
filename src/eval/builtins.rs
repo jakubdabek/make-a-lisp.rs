@@ -9,6 +9,7 @@ use super::{
 
 mod atoms;
 mod control_flow;
+mod functional;
 mod lists;
 mod maps;
 mod primitives;
@@ -24,7 +25,10 @@ mod prelude {
     };
 }
 
-use self::{atoms::*, control_flow::*, lists::*, maps::*, primitives::*, quoting::*, strings::*};
+use self::{
+    atoms::*, control_flow::*, functional::*, lists::*, maps::*, primitives::*, quoting::*,
+    strings::*,
+};
 pub use maps::list_to_hash_map;
 
 // const ARITHMETIC_BUILTINS: &[&str] = &["+", "-", "*", "/"];
@@ -44,6 +48,9 @@ pub const BUILTINS: &[(&str, BuiltinFn)] = &[
     ("defmacro!", eval_def_macro),
     ("fn*", eval_fn),
     ("=", eval_eq),
+    // functional
+    ("map", eval_map),
+    ("apply", eval_apply),
     // lists
     ("list", eval_list),
     ("list?", eval_is_list),
