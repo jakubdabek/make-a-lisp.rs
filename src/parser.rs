@@ -1,7 +1,8 @@
-use std::iter::Peekable;
+use std::{iter::Peekable, rc::Rc};
 
 use crate::{
     ast::{Expr, Keyword},
+    eval::builtins::list_to_hash_map,
     lexer::{Lexer, Token},
 };
 
@@ -17,6 +18,8 @@ pub enum ParseError {
     UnmatchedDelimiter(char),
     #[error("{0}")]
     LexError(String),
+    #[error("{0}")]
+    MapError(String),
     #[error("internal error: unknown token")]
     UnknownToken,
     #[error("internal error: {0}")]
@@ -99,7 +102,10 @@ fn parse_list(lexer: &mut Peekable<Lexer<'_>>, end: u8) -> ParseResult<Expr> {
     match end {
         b')' => Ok(Expr::List(list)),
         b']' => Ok(Expr::Vector(list)),
-        b'}' => Ok(Expr::Map(list)),
+        b'}' => list_to_hash_map(&list)
+            .map(Rc::new)
+            .map(Expr::Map)
+            .map_err(|e| ParseError::MapError(e.to_string())),
         _ => Err(ParseError::InternalError(
             "unknown value of end for list".into(),
         )),

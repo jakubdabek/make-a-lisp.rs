@@ -1,8 +1,11 @@
 use std::{cell::RefCell, rc::Rc};
 
+use fnv::FnvHashMap;
+
 use crate::environment::Env;
 
 pub mod display;
+pub type Map = FnvHashMap<MapKey, Expr>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
@@ -12,7 +15,7 @@ pub enum Expr {
     String(String),
     List(Vec<Expr>),
     Vector(Vec<Expr>),
-    Map(Vec<Expr>),
+    Map(Rc<Map>),
     Symbol(Rc<str>),
     Keyword(Keyword),
     Function(Function),
@@ -74,6 +77,14 @@ impl Expr {
         }
     }
 
+    pub fn to_map_key(&self) -> Option<MapKey> {
+        match self {
+            Expr::String(s) => Some(MapKey::String(s.clone())),
+            Expr::Keyword(kw) => Some(MapKey::Keyword(kw.clone())),
+            _ => None,
+        }
+    }
+
     pub fn lenient_eq(&self, other: &Self) -> bool {
         if self == other {
             return true;
@@ -83,7 +94,27 @@ impl Expr {
             (Expr::List(a) | Expr::Vector(a), Expr::List(b) | Expr::Vector(b)) => {
                 a.len() == b.len() && a.iter().zip(b).all(|(a, b)| a.lenient_eq(b))
             }
+            (Expr::Map(a), Expr::Map(b)) => {
+                a.len() == b.len()
+                    && a.iter()
+                        .all(|(k, v)| b.get(k).map(|v2| v.lenient_eq(v2)).unwrap_or(false))
+            }
             _ => false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum MapKey {
+    String(String),
+    Keyword(Keyword),
+}
+
+impl MapKey {
+    pub fn to_expr(&self) -> Expr {
+        match self {
+            MapKey::String(s) => Expr::String(s.clone()),
+            MapKey::Keyword(kw) => Expr::Keyword(kw.clone()),
         }
     }
 }
@@ -97,7 +128,7 @@ pub struct Function {
     pub is_macro: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Keyword(Rc<str>);
 
 impl Keyword {

@@ -1,6 +1,6 @@
 use std::fmt::{self, Write};
 
-use super::{Expr, Keyword};
+use super::{Expr, Keyword, MapKey};
 
 impl fmt::Display for Keyword {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -10,18 +10,28 @@ impl fmt::Display for Keyword {
     }
 }
 
-pub struct Join<'a, D>(pub &'a [D], pub &'a str);
-
-impl<D: fmt::Display> fmt::Display for Join<'_, D> {
+impl fmt::Display for MapKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self(list, delim) = self;
+        fmt::Display::fmt(&self.to_expr(), f)
+    }
+}
 
-        let mut it = list.iter();
+pub struct Join<'a, I>(pub I, pub &'a str);
+
+impl<I, D> fmt::Display for Join<'_, I>
+where
+    I: IntoIterator<Item = D> + Clone,
+    D: fmt::Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self(iter, delim) = self;
+
+        let mut it = iter.clone().into_iter();
         if let Some(first) = it.next() {
-            fmt::Display::fmt(first, f)?;
+            fmt::Display::fmt(&first, f)?;
             for elem in it {
                 f.write_str(delim)?;
-                fmt::Display::fmt(elem, f)?;
+                fmt::Display::fmt(&elem, f)?;
             }
         }
         Ok(())
@@ -60,7 +70,12 @@ impl fmt::Display for Expr {
             Expr::Vector(vector) => {
                 fmt::Display::fmt(&Surrounded(Join(vector, " "), ['[', ']']), f)
             }
-            Expr::Map(map) => fmt::Display::fmt(&Surrounded(Join(map, " "), ['{', '}']), f),
+            Expr::Map(map) => {
+                let items = map
+                    .iter()
+                    .flat_map(|(k, v)| [k as &dyn fmt::Display, v as _]);
+                fmt::Display::fmt(&Surrounded(Join(items, " "), ['{', '}']), f)
+            }
             Expr::Symbol(s) => write!(f, "{s}"),
             Expr::Function(_) => f.write_str("#<function>"),
             Expr::BuiltinFunction(fname) => write!(f, "{fname}"),

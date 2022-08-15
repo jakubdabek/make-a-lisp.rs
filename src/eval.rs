@@ -1,7 +1,7 @@
 use std::{io, rc::Rc};
 
 use crate::{
-    ast::{Expr, Function},
+    ast::{Expr, Function, MapKey},
     environment::{Env, Environment},
     parser::ParseError,
 };
@@ -9,6 +9,7 @@ use crate::{
 use self::builtins::eval_list_builtin;
 
 pub mod builtins;
+mod utils;
 
 #[derive(Debug, thiserror::Error)]
 pub enum EvalError {
@@ -44,6 +45,7 @@ enum Thunk {
     Unevaluated(Rc<Expr>, Env),
 }
 
+use fnv::FnvHashMap;
 use Thunk::{Evaluated, Unevaluated};
 
 pub fn eval(expr: &Expr, env: &Env) -> EvalResult<Expr> {
@@ -117,9 +119,7 @@ fn eval_maybe_macro(expr: &Expr, env: &Env, expand_macros: bool) -> EvalResult<E
             Expr::Vector(v) => Ok(Expr::Vector(
                 v.iter().map(|e| eval(e, env)).collect::<EvalResult<_>>()?,
             )),
-            Expr::Map(m) => Ok(Expr::Map(
-                m.iter().map(|e| eval(e, env)).collect::<EvalResult<_>>()?,
-            )),
+            Expr::Map(m) => eval_map_literal(m, env),
             expr => Ok(expr.clone()),
         };
 
@@ -186,4 +186,12 @@ fn eval_list(exprs: &[Expr], env: &Env) -> EvalResult<Thunk> {
     } else {
         Ok(Unevaluated(Rc::clone(&f.expr), args_env))
     }
+}
+
+fn eval_map_literal(map: &FnvHashMap<MapKey, Expr>, env: &Env) -> EvalResult<Expr> {
+    let map = map
+        .iter()
+        .map(|(k, v)| Ok((k.clone(), eval(v, env)?)))
+        .collect::<EvalResult<_>>()?;
+    Ok(Expr::Map(Rc::new(map)))
 }
