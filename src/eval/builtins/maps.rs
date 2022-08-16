@@ -7,8 +7,7 @@ use crate::ast::{Map, MapKey};
 use super::prelude::*;
 
 pub(super) fn eval_is_map(args: &[Expr], env: &Env) -> EvalResult<Expr> {
-    let expr = eval_1(args, env)?;
-    Ok(Expr::Bool(matches!(expr, Expr::Map(_))))
+    is_type!(args, env, Expr::Map(_))
 }
 
 pub(super) fn eval_hash_map(args: &[Expr], env: &Env) -> EvalResult<Expr> {

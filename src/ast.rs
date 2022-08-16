@@ -22,6 +22,7 @@ pub enum Expr {
     BuiltinFunction(&'static str),
     Atom(Rc<RefCell<Expr>>),
     MacroExpand(Rc<Expr>),
+    WithMeta { expr: Rc<Expr>, meta: Rc<Expr> },
 }
 
 impl Expr {
@@ -82,6 +83,20 @@ impl Expr {
             Expr::String(s) => Some(MapKey::String(s.clone())),
             Expr::Keyword(kw) => Some(MapKey::Keyword(kw.clone())),
             _ => None,
+        }
+    }
+
+    pub fn as_no_meta(&self) -> &Self {
+        match self {
+            Expr::WithMeta { expr, .. } => &*expr,
+            expr => expr,
+        }
+    }
+
+    pub fn into_no_meta(self) -> Self {
+        match self {
+            Expr::WithMeta { expr, .. } => Self::clone(&*expr),
+            expr => expr,
         }
     }
 

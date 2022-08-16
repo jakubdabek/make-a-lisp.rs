@@ -36,11 +36,11 @@ pub(super) fn as_type<'a, T: 'a>(
     arg: &'a Expr,
     op: impl FnOnce(&'a Expr) -> Option<T>,
 ) -> EvalResult<T> {
-    op(arg).ok_or_else(|| EvalError::InvalidArgumentTypes(vec![arg.to_string()]))
+    op(arg.as_no_meta()).ok_or_else(|| EvalError::InvalidArgumentTypes(vec![arg.to_string()]))
 }
 
 pub(super) fn into_type<T>(arg: Expr, op: impl FnOnce(Expr) -> Result<T, Expr>) -> EvalResult<T> {
-    op(arg).map_err(|arg| EvalError::InvalidArgumentTypes(vec![arg.to_string()]))
+    op(arg.into_no_meta()).map_err(|arg| EvalError::InvalidArgumentTypes(vec![arg.to_string()]))
 }
 
 pub(super) mod macros {
@@ -77,6 +77,14 @@ pub(super) mod macros {
         };
     }
     pub(crate) use into_type;
+
+    macro_rules! is_type {
+        ($args:expr, $env:expr, $($pat:tt)+) => {{
+            let expr = eval_1($args, $env)?;
+            Ok(Expr::Bool(matches!(expr.as_no_meta(), $($pat)+)))
+        }};
+    }
+    pub(crate) use is_type;
 }
 
 pub(super) fn eval_number_args(args: &[Expr], env: &Env) -> EvalResult<(i64, i64)> {

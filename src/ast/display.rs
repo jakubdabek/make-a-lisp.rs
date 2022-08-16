@@ -86,6 +86,7 @@ impl fmt::Display for Expr {
                 Ok(())
             }
             Expr::MacroExpand(_) => unreachable!(),
+            Expr::WithMeta { expr, .. } => std::fmt::Display::fmt(expr, f),
         }
     }
 }

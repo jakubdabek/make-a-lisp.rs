@@ -128,6 +128,17 @@ fn eval_maybe_macro(expr: &Expr, env: &Env, expand_macros: bool) -> EvalResult<E
                 v.iter().map(|e| eval(e, env)).collect::<EvalResult<_>>()?,
             )),
             Expr::Map(m) => eval_map_literal(m, env),
+            Expr::WithMeta { expr, meta } => match &**expr {
+                expr @ Expr::List(_) => eval(expr, env),
+                expr @ (Expr::Vector(_)
+                | Expr::Map(_)
+                | Expr::Function(_)
+                | Expr::BuiltinFunction(_)) => eval(expr, env).map(|expr| Expr::WithMeta {
+                    expr: Rc::new(expr),
+                    meta: meta.clone(),
+                }),
+                _ => unreachable!(),
+            },
             expr => Ok(expr.clone()),
         };
 
@@ -149,7 +160,7 @@ fn eval_list(exprs: &[Expr], env: &Env) -> EvalResult<Thunk> {
         None => return Ok(Evaluated(Expr::List(vec![]))),
     };
 
-    let name = eval(name, env)?;
+    let name = eval(name, env)?.into_no_meta();
 
     if let Some(ret) = eval_list_builtin(&name, args, env) {
         return ret;
