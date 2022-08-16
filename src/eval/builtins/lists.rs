@@ -106,3 +106,38 @@ pub(super) fn eval_nth(args: &[Expr], env: &Env) -> EvalResult<Expr> {
             )))
         })
 }
+
+pub(super) fn eval_conj(args: &[Expr], env: &Env) -> EvalResult<Expr> {
+    let args = eval_args(args, env)?;
+    let (seq, args) = args.split_first().ok_or(EvalError::InvalidArgumentCount)?;
+
+    match seq {
+        Expr::List(l) => Ok(Expr::List(
+            args.iter()
+                .cloned()
+                .rev()
+                .chain(l.iter().cloned())
+                .collect(),
+        )),
+        Expr::Vector(v) => Ok(Expr::Vector(
+            v.iter().cloned().chain(args.iter().cloned()).collect(),
+        )),
+        _ => Err(EvalError::InvalidArgumentTypes(vec![seq.to_string()])),
+    }
+}
+
+pub(super) fn eval_seq(args: &[Expr], env: &Env) -> EvalResult<Expr> {
+    let arg = eval_1(args, env)?;
+    match arg {
+        Expr::Nil => Ok(Expr::Nil),
+        Expr::List(l) if l.is_empty() => Ok(Expr::Nil),
+        l @ Expr::List(_) => Ok(l),
+        Expr::Vector(v) if v.is_empty() => Ok(Expr::Nil),
+        Expr::Vector(v) => Ok(Expr::List(v)),
+        Expr::String(s) if s.is_empty() => Ok(Expr::Nil),
+        Expr::String(s) => Ok(Expr::List(
+            s.chars().map(|c| c.to_string()).map(Expr::String).collect(),
+        )),
+        _ => Err(EvalError::InvalidArgumentTypes(vec![arg.to_string()])),
+    }
+}

@@ -25,9 +25,10 @@ pub(super) fn eval_reset(args: &[Expr], env: &Env) -> EvalResult<Expr> {
 }
 
 pub(super) fn eval_swap(args: &[Expr], env: &Env) -> EvalResult<Expr> {
-    let mut args = eval_args(args, env)?;
+    let mut args = args.to_vec();
     let atom_ref = match &mut args[..] {
         [atom, func, ..] => {
+            *atom = super::eval(&*atom, env)?;
             std::mem::swap(atom, func);
             let (atom, _func) = (func, atom);
             let atom_ref = as_type!(atom => Expr::Atom)?.clone();

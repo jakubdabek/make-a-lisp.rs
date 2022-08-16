@@ -1,4 +1,4 @@
-use crate::{ast::display::Join, parser};
+use crate::{ast::display::Join, parser, repl};
 
 use super::prelude::*;
 
@@ -39,4 +39,16 @@ pub(super) fn eval_slurp(args: &[Expr], env: &Env) -> EvalResult<Expr> {
 
     let content = std::fs::read_to_string(arg)?;
     Ok(Expr::String(content))
+}
+
+pub(super) fn eval_readline(args: &[Expr], env: &Env) -> EvalResult<Expr> {
+    let pr = eval_1(args, env)?;
+    let pr = as_type(&pr, Expr::as_string)?;
+
+    match repl::read(Some(&format!("\n{}", pr))) {
+        Ok(s) if s.is_empty() => Ok(Expr::Nil),
+        Ok(s) => Ok(Expr::String(s)),
+        Err(repl::Error::IO(err)) => Err(EvalError::IOError(err)),
+        Err(_) => unreachable!("repl::read doesn't have other error conditions"),
+    }
 }

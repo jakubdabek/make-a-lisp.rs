@@ -1,3 +1,5 @@
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use crate::{ast::Expr, environment::Env};
 
 use super::{
@@ -12,6 +14,7 @@ mod control_flow;
 mod functional;
 mod lists;
 mod maps;
+mod meta;
 mod primitives;
 mod quoting;
 mod strings;
@@ -26,15 +29,15 @@ mod prelude {
 }
 
 use self::{
-    atoms::*, control_flow::*, functional::*, lists::*, maps::*, primitives::*, quoting::*,
-    strings::*,
+    atoms::*, control_flow::*, functional::*, lists::*, maps::*, meta::*, primitives::*,
+    quoting::*, strings::*,
 };
 pub use maps::list_to_hash_map;
 
 // const ARITHMETIC_BUILTINS: &[&str] = &["+", "-", "*", "/"];
 // const COMPARISON_BUILTINS: &[&str] = &["<", ">", ">=", "<="];
 
-pub(super) type BuiltinThunkFn = fn(&[Expr], &Env) -> EvalResult<Thunk>;
+pub type BuiltinThunkFn = fn(&[Expr], &Env) -> EvalResult<Thunk>;
 pub type BuiltinFn = fn(&[Expr], &Env) -> EvalResult<Expr>;
 
 macro_rules! number_op {
@@ -50,6 +53,10 @@ pub const BUILTINS: &[(&str, BuiltinFn)] = &[
     ("=", eval_eq),
     ("try*", eval_try),
     ("throw", eval_throw),
+    ("time-ms", eval_time_ms),
+    // meta
+    ("meta", eval_meta),
+    ("with-meta", eval_with_meta),
     // functional
     ("map", eval_map),
     ("apply", eval_apply),
@@ -67,6 +74,8 @@ pub const BUILTINS: &[(&str, BuiltinFn)] = &[
     ("vec", eval_vec),
     ("vector", eval_vector),
     ("vector?", eval_is_vector),
+    ("conj", eval_conj),
+    ("seq", eval_seq),
     // maps
     ("map?", eval_is_map),
     ("hash-map", eval_hash_map),
@@ -83,6 +92,7 @@ pub const BUILTINS: &[(&str, BuiltinFn)] = &[
     ("println", eval_println),
     ("slurp", eval_slurp),
     ("read-string", eval_read_string),
+    ("readline", eval_readline),
     // quoting
     ("eval", eval_eval),
     ("eval*", eval_eval_local),
@@ -101,6 +111,10 @@ pub const BUILTINS: &[(&str, BuiltinFn)] = &[
     ("false?", eval_is_false),
     ("true?", eval_is_true),
     ("nil?", eval_is_nil),
+    ("string?", eval_is_string),
+    ("fn?", eval_is_fn),
+    ("macro?", eval_is_macro),
+    ("number?", eval_is_number),
     ("symbol?", eval_is_symbol),
     ("symbol", eval_symbol),
     ("keyword?", eval_is_keyword),
@@ -116,7 +130,7 @@ pub const BUILTINS: &[(&str, BuiltinFn)] = &[
     ("<=", number_op!(eval_cmp(<=))),
 ];
 
-pub(super) const THUNK_BUILTINS: &[(&str, BuiltinThunkFn)] = &[
+pub const THUNK_BUILTINS: &[(&str, BuiltinThunkFn)] = &[
     ("let*", eval_let),
     ("do", eval_do),
     ("if", eval_if),
@@ -176,4 +190,14 @@ fn eval_cmp(op: impl FnOnce(i64, i64) -> bool, args: &[Expr], env: &Env) -> Eval
 fn eval_eq(args: &[Expr], env: &Env) -> EvalResult<Expr> {
     let (a, b) = eval_2(args, env)?;
     Ok(Expr::Bool(a.lenient_eq(&b)))
+}
+
+fn eval_time_ms(args: &[Expr], _env: &Env) -> EvalResult<Expr> {
+    let [] = args_n(args)?;
+    let start = SystemTime::now();
+    let since_the_epoch = start
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards");
+
+    Ok(Expr::Int(since_the_epoch.as_millis() as i64))
 }

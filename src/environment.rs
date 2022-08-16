@@ -2,7 +2,10 @@ use std::{borrow::Cow, cell::RefCell, fmt, rc::Rc};
 
 use fnv::FnvHashMap;
 
-use crate::{ast::Expr, eval::builtins::BUILTINS};
+use crate::{
+    ast::Expr,
+    eval::builtins::{BUILTINS, THUNK_BUILTINS},
+};
 
 #[derive(Default, PartialEq)]
 pub struct Environment {
@@ -49,6 +52,9 @@ impl Environment {
     pub fn with_builtins() -> Env {
         let env = Self::new();
         for (builtin, _) in BUILTINS {
+            env.set_special(builtin, Expr::BuiltinFunction(builtin));
+        }
+        for (builtin, _) in THUNK_BUILTINS {
             env.set_special(builtin, Expr::BuiltinFunction(builtin));
         }
 

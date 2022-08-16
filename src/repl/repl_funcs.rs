@@ -10,7 +10,7 @@ pub trait ReplFuncs {
         true
     }
     fn read(&self) -> Result<String> {
-        super::read()
+        super::read(None)
     }
     fn execute(&self, s: &str, env: &Env) -> Result<Self::Value>;
     fn print(&self, expr: Self::Value) -> Result<String>;

@@ -81,9 +81,9 @@ fn parse_special_form(lexer: &mut Peekable<Lexer<'_>>, name: &'static str) -> Pa
     let expr = parse_term(lexer)?;
     if name == "with-meta" {
         let meta = parse_term(lexer)?;
-        Ok(Expr::List(vec![Expr::Symbol(name.into()), meta, expr]))
+        Ok(Expr::List(vec![Expr::BuiltinFunction(name), meta, expr]))
     } else {
-        Ok(Expr::List(vec![Expr::Symbol(name.into()), expr]))
+        Ok(Expr::List(vec![Expr::BuiltinFunction(name), expr]))
     }
 }
 

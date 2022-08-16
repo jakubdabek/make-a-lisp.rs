@@ -48,7 +48,7 @@ impl EvalError {
 pub type EvalResult<T> = std::result::Result<T, EvalError>;
 
 #[derive(Debug)]
-enum Thunk {
+pub enum Thunk {
     Evaluated(Expr),
     Unevaluated(Rc<Expr>, Env),
 }
@@ -149,11 +149,11 @@ fn eval_list(exprs: &[Expr], env: &Env) -> EvalResult<Thunk> {
         None => return Ok(Evaluated(Expr::List(vec![]))),
     };
 
-    if let Some(ret) = eval_list_builtin(name, args, env) {
+    let name = eval(name, env)?;
+
+    if let Some(ret) = eval_list_builtin(&name, args, env) {
         return ret;
     }
-
-    let name = eval(name, env)?;
 
     let f = match &name {
         Expr::Function(f) => f,

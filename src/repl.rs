@@ -25,6 +25,12 @@ pub fn main(funcs: impl ReplFuncs) {
 pub fn repl(funcs: impl ReplFuncs) {
     let env = define_builtins(&funcs);
 
+    if funcs.is_interactive() {
+        funcs
+            .execute(r##"(println (str "Mal [" *host-language* "]"))"##, &env)
+            .unwrap();
+    }
+
     loop {
         match rep(&funcs, &env) {
             Ok(_) => {}
@@ -73,6 +79,8 @@ pub fn define_builtins(funcs: &impl ReplFuncs) -> Env {
         Expr::List(std::env::args().skip(2).map(Expr::String).collect()),
     );
 
+    env.set_special("*host-language*", Expr::String("rust2".into()));
+
     env
 }
 
@@ -85,13 +93,13 @@ pub fn rep(funcs: &impl ReplFuncs, env: &Env) -> Result<()> {
     Ok(())
 }
 
-pub fn prompt() {
-    print!("user> ");
+pub fn prompt(pr: Option<&str>) {
+    print!("{}", pr.unwrap_or("user> "));
     std::io::stdout().flush().unwrap();
 }
 
-pub fn read() -> Result<String> {
-    prompt();
+pub fn read(pr: Option<&str>) -> Result<String> {
+    prompt(pr);
     let mut s = String::new();
     if std::io::stdin().read_line(&mut s)? == 0 {
         Err(Error::Eof)
