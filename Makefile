@@ -13,6 +13,7 @@ REPEATING_STEPS := \
 	step7_quote \
 	step8_macros \
 	step9_try \
+	stepA_mal \
 	# end of REPEATING_STEPS
 
 ALL_STEPS := $(DEBUG_STEPS) $(STEPS) $(REPEATING_STEPS)
